@@ -39,6 +39,34 @@ final class MatchupScoringService
     }
 
     /**
+     * Per-starter fantasy points for every Team in a week, each list sorted from
+     * highest to lowest. Feeds the Playoff in-matchup tiebreak, which compares two
+     * Teams starter-by-starter when their totals are equal. Reuses the exact same
+     * inputs (resolved stat lines × started Players × scoring) as scoreWeek.
+     *
+     * @return array<int, list<float>>
+     */
+    public function starterPointsByTeam(int $leagueId, int $seasonId, int $week): array
+    {
+        $settings = $this->settings->all($leagueId, $seasonId);
+        $statLines = $this->stats->resolvedForWeek($seasonId, $week);
+        $starters = $this->lineups->startersForWeek($seasonId, $week);
+
+        $out = [];
+        foreach ($starters as $teamId => $slots) {
+            $points = [];
+            foreach ($slots as $s) {
+                $line = $statLines[$s['player_id']] ?? [];
+                $points[] = $this->engine->pointsFor($line, $settings);
+            }
+            rsort($points); // highest first
+            $out[(int) $teamId] = $points;
+        }
+
+        return $out;
+    }
+
+    /**
      * @param array<int, list<array{roster_slot:string,player_id:string}>> $starters
      * @param array<string, array<string,float>> $statLines
      * @param array<string,string> $settings

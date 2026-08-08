@@ -7,6 +7,7 @@ namespace FFB\Playoffs;
 use FFB\LeagueSettingsRepository;
 use FFB\MatchupRepository;
 use FFB\PlayoffRepository;
+use FFB\Scoring\MatchupScoringService;
 use FFB\StandingsService;
 use FFB\TeamRepository;
 use PDO;
@@ -30,6 +31,7 @@ final class PlayoffService
         private readonly LeagueSettingsRepository $settings,
         private readonly TeamRepository $teams,
         private readonly MatchupRepository $matchups,
+        private readonly MatchupScoringService $scoring,
     ) {
     }
 
@@ -118,7 +120,7 @@ final class PlayoffService
             }
         }
 
-        $advancers = $this->advancersOutOf($seasonId, $current, $seeds);
+        $advancers = $this->advancersOutOf($leagueId, $seasonId, $current, $seeds);
         $rows = [];
         for ($i = 0; $i < count($advancers); $i += 2) {
             $rows[] = ['home_team_id' => $advancers[$i], 'away_team_id' => $advancers[$i + 1]];
@@ -146,14 +148,14 @@ final class PlayoffService
      * @param array<int,int> $seeds seed => team_id
      * @return list<int>
      */
-    private function advancersOutOf(int $seasonId, int $round, array $seeds): array
+    private function advancersOutOf(int $leagueId, int $seasonId, int $round, array $seeds): array
     {
         $teamSeed = array_flip($seeds);
 
         if ($round > 1) {
             $out = [];
             foreach ($this->matchups->forRound($seasonId, $round) as $m) {
-                $out[] = $this->winnerOf($m, $teamSeed);
+                $out[] = $this->winnerOf($leagueId, $seasonId, $m, $teamSeed);
             }
 
             return $out;
@@ -166,7 +168,7 @@ final class PlayoffService
             if ($low > count($seeds)) {
                 $out[] = $seeds[$high]; // bye: the higher seed advances automatically
             } else {
-                $out[] = $this->winnerOf($games[$gameIndex++], $teamSeed);
+                $out[] = $this->winnerOf($leagueId, $seasonId, $games[$gameIndex++], $teamSeed);
             }
         }
 
@@ -174,14 +176,16 @@ final class PlayoffService
     }
 
     /**
-     * The Team that won a settled playoff Matchup: higher final score, and on an
-     * exact tie the higher seed (lower seed number). A later slice inserts the
-     * per-starter comparison ahead of the seed backstop.
+     * The Team that won a settled playoff Matchup. Higher final score wins; a tie
+     * is broken by the highest-scoring single starter, then the next-highest, and
+     * so on; if the sorted starter vectors are identical too, the higher seed
+     * (lower seed number) advances as the final backstop, so the bracket can never
+     * stall.
      *
      * @param array<string,mixed> $m
      * @param array<int,int> $teamSeed team_id => seed
      */
-    private function winnerOf(array $m, array $teamSeed): int
+    private function winnerOf(int $leagueId, int $seasonId, array $m, array $teamSeed): int
     {
         $home = (int) $m['home_team_id'];
         $away = (int) $m['away_team_id'];
@@ -193,6 +197,21 @@ final class PlayoffService
         }
         if ($awayScore > $homeScore) {
             return $away;
+        }
+
+        $byTeam = $this->scoring->starterPointsByTeam($leagueId, $seasonId, (int) $m['week']);
+        $homeStarters = $byTeam[$home] ?? [];
+        $awayStarters = $byTeam[$away] ?? [];
+        $depth = max(count($homeStarters), count($awayStarters));
+        for ($i = 0; $i < $depth; $i++) {
+            $h = $homeStarters[$i] ?? -INF;
+            $a = $awayStarters[$i] ?? -INF;
+            if ($h > $a) {
+                return $home;
+            }
+            if ($a > $h) {
+                return $away;
+            }
         }
 
         return ($teamSeed[$home] ?? PHP_INT_MAX) < ($teamSeed[$away] ?? PHP_INT_MAX) ? $home : $away;

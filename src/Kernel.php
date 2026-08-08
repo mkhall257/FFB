@@ -25,6 +25,8 @@ use FFB\Http\Router;
 use FFB\Lineup\LineupService;
 use FFB\Lineup\WeekLock;
 use FFB\Playoffs\PlayoffService;
+use FFB\Scoring\MatchupScoringService;
+use FFB\Scoring\ScoringEngine;
 use FFB\Schedule\ScheduleGenerator;
 use FFB\Schedule\ScheduleService;
 use FFB\Transactions\TransactionService;
@@ -78,7 +80,12 @@ final class Kernel
         $transactionsPage = new TransactionsController($transactionService, $transactionLedger, $leagues, $view);
         $tradesPage = new TradesController($transactionService, $transactionLedger, $rosters, $teams, $leagues, $view);
         $rosterAdmin = new RosterAdminController($transactionService, $rosters, $players, $teams, $leagues, $view);
-        $playoffService = new PlayoffService($pdo, $playoffRepo, new StandingsService($pdo), $settings, $teams, $matchups);
+        $matchupScoring = new MatchupScoringService(
+            $matchups, $lineupRepo, new PlayerWeekStatsRepository($pdo), new ScoringEngine(), $settings,
+        );
+        $playoffService = new PlayoffService(
+            $pdo, $playoffRepo, new StandingsService($pdo), $settings, $teams, $matchups, $matchupScoring,
+        );
         $playoffsPage = new PlayoffsController($playoffService, $leagues);
 
         $router = new Router();
