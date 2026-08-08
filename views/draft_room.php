@@ -9,6 +9,8 @@
  * @var array<string,mixed>|null $myTeam        the viewer's team, or null
  * @var int|null $onClockTeamId
  * @var bool $myTurn
+ * @var bool $isCommissioner
+ * @var list<array<string,mixed>> $order   draft order rows (commissioner only)
  * @var string|null $flash
  * @var string|null $error
  */
@@ -88,6 +90,62 @@ $recent = array_slice(array_reverse($made), 0, 10);
             </select>
             <button type="submit">Add to queue</button>
         </form>
+    <?php endif; ?>
+<?php endif; ?>
+
+<?php if ($isCommissioner && $draft !== null && in_array($state, ['live', 'paused'], true)): ?>
+    <h2>Commissioner controls</h2>
+    <p>
+        <?php if ($state === 'live'): ?>
+            <form method="post" action="/admin/draft/pause" style="display:inline"><button type="submit">Pause</button></form>
+        <?php else: ?>
+            <form method="post" action="/admin/draft/resume" style="display:inline"><button type="submit">Resume</button></form>
+        <?php endif; ?>
+        <form method="post" action="/admin/draft/add-time" style="display:inline">
+            <input type="hidden" name="seconds" value="30"><button type="submit">+30s</button>
+        </form>
+        <form method="post" action="/admin/draft/undo-last" style="display:inline"><button type="submit">Undo last pick</button></form>
+        <form method="post" action="/admin/draft/reset" style="display:inline"
+              onsubmit="return confirm('Really reset the whole draft? This wipes every pick.') &amp;&amp; confirm('Are you absolutely sure?')">
+            <button type="submit">Reset draft</button>
+        </form>
+    </p>
+
+    <?php if ($state === 'live'): ?>
+        <form method="post" action="/admin/draft/pick-on-behalf">
+            Pick for the team on the clock:
+            <select name="player_id" required>
+                <?php foreach ($available as $p): ?>
+                    <option value="<?= e((string) $p['sleeper_id']) ?>"><?= e((string) $p['full_name']) ?> (<?= e((string) $p['position']) ?>)</option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit">Draft for them</button>
+        </form>
+    <?php endif; ?>
+
+    <?php if ($order !== []): ?>
+        <h3>Auto-draft teams</h3>
+        <ul>
+            <?php foreach ($order as $o): ?>
+                <li>
+                    <?= e((string) $o['team_name']) ?> —
+                    <?php if ((int) $o['auto_draft'] === 1): ?>
+                        auto-drafting
+                        <form method="post" action="/admin/draft/auto-draft" style="display:inline">
+                            <input type="hidden" name="team_id" value="<?= (int) $o['team_id'] ?>">
+                            <input type="hidden" name="enabled" value="0">
+                            <button type="submit">Turn off</button>
+                        </form>
+                    <?php else: ?>
+                        <form method="post" action="/admin/draft/auto-draft" style="display:inline">
+                            <input type="hidden" name="team_id" value="<?= (int) $o['team_id'] ?>">
+                            <input type="hidden" name="enabled" value="1">
+                            <button type="submit">Auto-draft this team</button>
+                        </form>
+                    <?php endif; ?>
+                </li>
+            <?php endforeach; ?>
+        </ul>
     <?php endif; ?>
 <?php endif; ?>
 

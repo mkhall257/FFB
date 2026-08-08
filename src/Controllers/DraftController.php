@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace FFB\Controllers;
 
+use FFB\Draft\DraftPickException;
+use FFB\Draft\DraftService;
 use FFB\DraftPickRepository;
 use FFB\DraftRepository;
 use FFB\Http\Request;
@@ -11,6 +13,7 @@ use FFB\Http\Response;
 use FFB\Http\Session;
 use FFB\LeagueRepository;
 use FFB\LeagueSettingsRepository;
+use FFB\PlayerRepository;
 use FFB\TeamRepository;
 use FFB\View;
 use PDO;
@@ -43,8 +46,10 @@ final class DraftController
         private readonly PDO $pdo,
         private readonly DraftRepository $drafts,
         private readonly DraftPickRepository $picks,
+        private readonly DraftService $service,
         private readonly LeagueSettingsRepository $settings,
         private readonly TeamRepository $teams,
+        private readonly PlayerRepository $players,
         private readonly LeagueRepository $leagues,
         private readonly View $view,
     ) {
@@ -218,6 +223,189 @@ final class DraftController
         $session->set('flash', 'The draft is live!');
 
         return Response::redirect('/admin/draft');
+    }
+
+    public function pause(Request $request, Session $session): Response
+    {
+        $draft = $this->currentDraft();
+        if ($draft === null || $draft['state'] !== 'live') {
+            return Response::html('Only a live draft can be paused.', 409);
+        }
+
+        $remaining = $draft['current_deadline'] !== null
+            ? max(0, strtotime((string) $draft['current_deadline']) - time())
+            : (int) $draft['pick_seconds'];
+        $this->drafts->pause((int) $draft['id'], $remaining);
+        $session->set('flash', 'Draft paused.');
+
+        return Response::redirect('/draft');
+    }
+
+    public function resume(Request $request, Session $session): Response
+    {
+        $draft = $this->currentDraft();
+        if ($draft === null || $draft['state'] !== 'paused') {
+            return Response::html('Only a paused draft can be resumed.', 409);
+        }
+
+        $this->drafts->resume((int) $draft['id']);
+        $session->set('flash', 'Draft resumed.');
+
+        return Response::redirect('/draft');
+    }
+
+    public function addTime(Request $request, Session $session): Response
+    {
+        $draft = $this->currentDraft();
+        if ($draft === null || !in_array($draft['state'], ['live', 'paused'], true)) {
+            return Response::html('The clock is not running.', 409);
+        }
+
+        $seconds = (int) $request->input('seconds', '0');
+        if ($seconds <= 0) {
+            return Response::html('Enter a positive number of seconds.', 400);
+        }
+
+        $this->drafts->addTime((int) $draft['id'], $seconds, $draft['state'] === 'paused');
+        $session->set('flash', "Added {$seconds}s to the clock.");
+
+        return Response::redirect('/draft');
+    }
+
+    public function pickOnBehalf(Request $request, Session $session): Response
+    {
+        $draft = $this->currentDraft();
+        if ($draft === null || $draft['state'] !== 'live') {
+            return Response::html('The draft is not live.', 409);
+        }
+
+        $current = $this->picks->findByOverall((int) $draft['id'], (int) $draft['current_pick_no']);
+        if ($current === null) {
+            return Response::html('No pick is on the clock.', 409);
+        }
+
+        try {
+            $this->service->pick($draft, (int) $current['team_id'], (string) $request->input('player_id', ''), 'commissioner');
+        } catch (DraftPickException $e) {
+            return Response::html($e->getMessage(), $e->status);
+        }
+        $this->service->runAutoDrafts();
+        $session->set('flash', 'Pick made for the team on the clock.');
+
+        return Response::redirect('/draft');
+    }
+
+    public function toggleAutoDraft(Request $request, Session $session): Response
+    {
+        $draft = $this->currentDraft();
+        if ($draft === null || !in_array($draft['state'], ['live', 'paused'], true)) {
+            return Response::html('Auto-draft can only be changed during a live draft.', 409);
+        }
+
+        $teamId = (int) $request->input('team_id', '0');
+        $team = $this->teams->find(
+            $this->leagues->currentLeagueId(),
+            $this->leagues->currentSeasonId(),
+            $teamId,
+        );
+        if ($team === null) {
+            return Response::html('Unknown team.', 400);
+        }
+
+        $enabled = $request->input('enabled', '0') === '1';
+        $this->drafts->setAutoDraft((int) $draft['id'], $teamId, $enabled);
+        if ($enabled) {
+            // May be this team's turn right now — let it pick immediately.
+            $this->service->runAutoDrafts();
+        }
+        $session->set('flash', $enabled ? 'Auto-draft turned on.' : 'Auto-draft turned off.');
+
+        return Response::redirect('/draft');
+    }
+
+    public function correctPick(Request $request, Session $session): Response
+    {
+        $draft = $this->currentDraft();
+        if ($draft === null) {
+            return Response::html('There is no draft.', 409);
+        }
+
+        $overall = (int) $request->input('overall_pick', '0');
+        $pick = $this->picks->findByOverall((int) $draft['id'], $overall);
+        if ($pick === null || $pick['player_id'] === null) {
+            return Response::html('That pick has not been made yet.', 400);
+        }
+
+        $playerId = trim((string) $request->input('player_id', ''));
+        if ($playerId === '' || !$this->players->isDraftable($playerId)) {
+            return Response::html('Choose a valid player.', 400);
+        }
+        if ($this->picks->isPlayerTakenByOther((int) $draft['id'], $playerId, (int) $pick['id'])) {
+            return Response::html('That player is already on another pick.', 409);
+        }
+
+        $this->picks->assignPlayer((int) $pick['id'], $playerId, 'commissioner');
+        $session->set('flash', 'Pick corrected.');
+
+        return Response::redirect('/draft');
+    }
+
+    public function undoLast(Request $request, Session $session): Response
+    {
+        $draft = $this->currentDraft();
+        if ($draft === null) {
+            return Response::html('There is no draft.', 409);
+        }
+
+        $last = $this->picks->lastMadePick((int) $draft['id']);
+        if ($last === null) {
+            return Response::html('There are no picks to undo.', 409);
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            $this->picks->clearPick((int) $last['id']);
+            $this->drafts->revertTo((int) $draft['id'], (int) $last['overall_pick'], (int) $draft['pick_seconds']);
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+        $session->set('flash', 'Last pick undone.');
+
+        return Response::redirect('/draft');
+    }
+
+    public function reset(Request $request, Session $session): Response
+    {
+        $draft = $this->currentDraft();
+        if ($draft === null || $draft['state'] === 'setup') {
+            return Response::html('There is nothing to reset.', 409);
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            $this->picks->clearBoard((int) $draft['id']);
+            $this->drafts->resetToSetup((int) $draft['id']);
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+        $session->set('flash', 'Draft reset to setup.');
+
+        return Response::redirect('/admin/draft');
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function currentDraft(): ?array
+    {
+        return $this->drafts->find(
+            $this->leagues->currentLeagueId(),
+            $this->leagues->currentSeasonId(),
+        );
     }
 
     /**

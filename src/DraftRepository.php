@@ -84,6 +84,47 @@ final class DraftRepository
     }
 
     /**
+     * Pause the Draft, banking the seconds left on the clock.
+     */
+    public function pause(int $draftId, int $remainingSeconds): void
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE drafts SET state = 'paused', paused_remaining = ?, current_deadline = NULL WHERE id = ?"
+        );
+        $stmt->execute([$remainingSeconds, $draftId]);
+    }
+
+    /**
+     * Resume a paused Draft, restoring the banked time (or a full timer).
+     */
+    public function resume(int $draftId): void
+    {
+        $stmt = $this->pdo->prepare('SELECT pick_seconds, paused_remaining FROM drafts WHERE id = ?');
+        $stmt->execute([$draftId]);
+        $row = $stmt->fetch();
+
+        $remaining = $row !== false && $row['paused_remaining'] !== null
+            ? (int) $row['paused_remaining']
+            : (int) ($row['pick_seconds'] ?? 0);
+        $deadline = date('Y-m-d H:i:s', time() + $remaining);
+
+        $this->pdo->prepare(
+            "UPDATE drafts SET state = 'live', current_deadline = ?, paused_remaining = NULL WHERE id = ?"
+        )->execute([$deadline, $draftId]);
+    }
+
+    /**
+     * Add seconds to the running clock (live) or to the banked time (paused).
+     */
+    public function addTime(int $draftId, int $seconds, bool $paused): void
+    {
+        $sql = $paused
+            ? 'UPDATE drafts SET paused_remaining = COALESCE(paused_remaining, 0) + ? WHERE id = ?'
+            : 'UPDATE drafts SET current_deadline = DATE_ADD(current_deadline, INTERVAL ? SECOND) WHERE id = ?';
+        $this->pdo->prepare($sql)->execute([$seconds, $draftId]);
+    }
+
+    /**
      * Move the clock to $pickNo with a fresh deadline from the pick timer.
      */
     public function advanceTo(int $draftId, int $pickNo, int $pickSeconds): void
@@ -93,6 +134,33 @@ final class DraftRepository
             'UPDATE drafts SET current_pick_no = ?, current_deadline = ? WHERE id = ?'
         );
         $stmt->execute([$pickNo, $deadline, $draftId]);
+    }
+
+    /**
+     * Put the clock back on an earlier pick (undo), reopening the Draft to Live
+     * if it had completed.
+     */
+    public function revertTo(int $draftId, int $overallPick, int $pickSeconds): void
+    {
+        $deadline = date('Y-m-d H:i:s', time() + $pickSeconds);
+        $stmt = $this->pdo->prepare(
+            "UPDATE drafts SET state = 'live', current_pick_no = ?, current_deadline = ?,"
+            . ' completed_at = NULL WHERE id = ?'
+        );
+        $stmt->execute([$overallPick, $deadline, $draftId]);
+    }
+
+    /**
+     * Return a Draft to Setup, clearing all live/lifecycle state (reset). The
+     * order and queues are left intact so the Draft can be re-run.
+     */
+    public function resetToSetup(int $draftId): void
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE drafts SET state = 'setup', current_pick_no = NULL, current_deadline = NULL,"
+            . ' paused_remaining = NULL, started_at = NULL, completed_at = NULL WHERE id = ?'
+        );
+        $stmt->execute([$draftId]);
     }
 
     /**
@@ -125,6 +193,25 @@ final class DraftRepository
             $insert->execute([$draftId, $position, $teamId]);
             $position++;
         }
+    }
+
+    public function setAutoDraft(int $draftId, int $teamId, bool $enabled): void
+    {
+        $stmt = $this->pdo->prepare(
+            'UPDATE draft_order SET auto_draft = ? WHERE draft_id = ? AND team_id = ?'
+        );
+        $stmt->execute([$enabled ? 1 : 0, $draftId, $teamId]);
+    }
+
+    public function isAutoDraft(int $draftId, int $teamId): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT auto_draft FROM draft_order WHERE draft_id = ? AND team_id = ?'
+        );
+        $stmt->execute([$draftId, $teamId]);
+        $value = $stmt->fetchColumn();
+
+        return $value !== false && (int) $value === 1;
     }
 
     /**

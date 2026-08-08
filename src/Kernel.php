@@ -42,10 +42,10 @@ final class Kernel
         $home = new HomeController($view);
         $admin = new AdminController($pdo, $teams, $users, $leagues, $view);
         $playerAdmin = new PlayerAdminController($players, $syncLog, $view);
-        $draft = new DraftController($pdo, $drafts, $draftPicks, $settings, $teams, $leagues, $view);
-
         $autoPick = new AutoPickStrategy($draftQueues, $draftPicks, $players);
         $draftService = new DraftService($pdo, $drafts, $draftPicks, $players, $autoPick, $settings, $leagues);
+
+        $draft = new DraftController($pdo, $drafts, $draftPicks, $draftService, $settings, $teams, $players, $leagues, $view);
         $draftRoom = new DraftRoomController($draftService, $drafts, $draftPicks, $draftQueues, $teams, $players, $leagues, $view);
 
         $router = new Router();
@@ -67,6 +67,14 @@ final class Kernel
         $router->post('/admin/draft/order', [$draft, 'reorder'], 'commissioner');
         $router->post('/admin/draft/finalize', [$draft, 'finalize'], 'commissioner');
         $router->post('/admin/draft/start', [$draft, 'start'], 'commissioner');
+        $router->post('/admin/draft/pause', [$draft, 'pause'], 'commissioner');
+        $router->post('/admin/draft/resume', [$draft, 'resume'], 'commissioner');
+        $router->post('/admin/draft/add-time', [$draft, 'addTime'], 'commissioner');
+        $router->post('/admin/draft/pick-on-behalf', [$draft, 'pickOnBehalf'], 'commissioner');
+        $router->post('/admin/draft/auto-draft', [$draft, 'toggleAutoDraft'], 'commissioner');
+        $router->post('/admin/draft/correct-pick', [$draft, 'correctPick'], 'commissioner');
+        $router->post('/admin/draft/undo-last', [$draft, 'undoLast'], 'commissioner');
+        $router->post('/admin/draft/reset', [$draft, 'reset'], 'commissioner');
 
         $router->get('/draft', [$draftRoom, 'index'], 'authenticated');
         $router->post('/draft/pick', [$draftRoom, 'pick'], 'authenticated');

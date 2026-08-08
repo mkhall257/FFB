@@ -64,6 +64,33 @@ final class DraftService
     }
 
     /**
+     * Keep Auto-picking while the Team on the clock is in Auto-draft mode, so a
+     * Team whose Manager has left never holds up the Draft. Bounded by the pick
+     * count; re-reads the live Draft each iteration.
+     */
+    public function runAutoDrafts(): void
+    {
+        $leagueId = $this->leagues->currentLeagueId();
+        $seasonId = $this->leagues->currentSeasonId();
+
+        for ($guard = 0; $guard < 10000; $guard++) {
+            $draft = $this->drafts->find($leagueId, $seasonId);
+            if ($draft === null || $draft['state'] !== 'live' || $draft['current_pick_no'] === null) {
+                return;
+            }
+
+            $current = $this->picks->findByOverall((int) $draft['id'], (int) $draft['current_pick_no']);
+            if ($current === null || !$this->drafts->isAutoDraft((int) $draft['id'], (int) $current['team_id'])) {
+                return;
+            }
+
+            if (!$this->autoPickFor($draft, (int) $current['team_id'])) {
+                return;
+            }
+        }
+    }
+
+    /**
      * Make an Auto-pick for a Team (its Queue, then the position-aware Sleeper
      * fallback with the legal-lineup guarantee). Used by expiry and, later, by
      * Commissioner-driven Auto-draft.

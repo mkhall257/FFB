@@ -127,4 +127,52 @@ final class DraftPickRepository
         );
         $stmt->execute([$playerId, $source, $pickId]);
     }
+
+    /**
+     * True when another pick in the Draft already holds this Player.
+     */
+    public function isPlayerTakenByOther(int $draftId, string $playerId, int $exceptPickId): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT 1 FROM draft_picks WHERE draft_id = ? AND player_id = ? AND id <> ? LIMIT 1'
+        );
+        $stmt->execute([$draftId, $playerId, $exceptPickId]);
+
+        return $stmt->fetchColumn() !== false;
+    }
+
+    /**
+     * The most recently made pick (highest overall with a Player), or null.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function lastMadePick(int $draftId): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT * FROM draft_picks WHERE draft_id = ? AND player_id IS NOT NULL'
+            . ' ORDER BY overall_pick DESC LIMIT 1'
+        );
+        $stmt->execute([$draftId]);
+        $row = $stmt->fetch();
+
+        return $row === false ? null : $row;
+    }
+
+    /**
+     * Empty a pick slot (undo): no Player, no source, no timestamp.
+     */
+    public function clearPick(int $pickId): void
+    {
+        $this->pdo->prepare(
+            'UPDATE draft_picks SET player_id = NULL, source = NULL, picked_at = NULL WHERE id = ?'
+        )->execute([$pickId]);
+    }
+
+    /**
+     * Delete the entire board for a Draft (reset).
+     */
+    public function clearBoard(int $draftId): void
+    {
+        $this->pdo->prepare('DELETE FROM draft_picks WHERE draft_id = ?')->execute([$draftId]);
+    }
 }

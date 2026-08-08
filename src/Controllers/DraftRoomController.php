@@ -75,6 +75,8 @@ final class DraftRoomController
             return $this->renderRoom($session, null, $e->getMessage(), $e->status);
         }
 
+        // If the next Team(s) are in Auto-draft mode, let them pick through.
+        $this->service->runAutoDrafts();
         $session->set('flash', 'Pick made.');
 
         return Response::redirect('/draft');
@@ -198,6 +200,9 @@ final class DraftRoomController
             $myTurn = $myTeam !== null && $onClockTeamId === (int) $myTeam['id'];
         }
 
+        $isCommissioner = $session->get('role') === 'commissioner';
+        $order = $draft !== null && $isCommissioner ? $this->drafts->order((int) $draft['id']) : [];
+
         return Response::html(
             $this->view->page('draft_room', 'Draft room', [
                 'draft' => $draft,
@@ -207,6 +212,8 @@ final class DraftRoomController
                 'myTeam' => $myTeam,
                 'onClockTeamId' => $onClockTeamId,
                 'myTurn' => $myTurn,
+                'isCommissioner' => $isCommissioner,
+                'order' => $order,
                 'flash' => $flash,
                 'error' => $error,
             ]),
