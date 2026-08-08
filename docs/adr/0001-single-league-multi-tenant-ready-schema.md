@@ -1,0 +1,3 @@
+# Single league and single season now, but carry `league_id` and `season_id` from day one
+
+FFB v1 runs exactly one League for one Season (2026), and the UI exposes no league-switching or season-rollover flow. We nonetheless stamp every domain row (Rosters, Matchups, scores, Drafts, Transactions) with both a `league_id` and a `season_id` from the first migration. The surface stays simple, but retrofitting these keys into a mature schema would be a painful migration — and both multi-tenancy and season history ("who won past years") are likely future asks. Cheap insurance now, expensive to add later.
