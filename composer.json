@@ -1,0 +1,28 @@
+{
+    "name": "ffb/ffb",
+    "description": "FFB — a self-contained fantasy football platform for a single private league.",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.3",
+        "ext-pdo": "*",
+        "ext-curl": "*",
+        "ext-json": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "FFB\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "FFB\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
