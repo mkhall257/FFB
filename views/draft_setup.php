@@ -83,10 +83,10 @@ $rounds = $starters + $slot('bench');
     </form>
 
     <?php if ($teams !== []): ?>
-        <form method="post" action="/admin/draft/order">
+        <form method="post" action="/admin/draft/order" style="margin-top:1rem">
             <p>Manual order (top to bottom):</p>
             <?php foreach ($teams as $i => $t): ?>
-                <label><?= (int) $i + 1 ?>.
+                <label style="display:block; margin-bottom:0.35rem"><?= (int) $i + 1 ?>.
                     <select name="team_ids[]">
                         <?php foreach ($teams as $opt): ?>
                             <option value="<?= (int) $opt['team_id'] ?>"><?= e((string) $opt['team_name']) ?></option>
@@ -98,7 +98,7 @@ $rounds = $starters + $slot('bench');
         </form>
     <?php endif; ?>
 
-    <form method="post" action="/admin/draft/finalize">
+    <form method="post" action="/admin/draft/finalize" style="margin-top:1.5rem">
         <button type="submit"<?= $order === [] ? ' disabled' : '' ?>>Finalize draft (lock order)</button>
     </form>
 <?php endif; ?>
