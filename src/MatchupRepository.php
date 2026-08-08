@@ -35,4 +35,24 @@ final class MatchupRepository
     {
         $this->pdo->prepare('DELETE FROM matchups WHERE season_id = ?')->execute([$seasonId]);
     }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function forWeek(int $seasonId, int $week): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT * FROM matchups WHERE season_id = ? AND week = ? ORDER BY id'
+        );
+        $stmt->execute([$seasonId, $week]);
+
+        return $stmt->fetchAll();
+    }
+
+    public function updateScores(int $matchupId, float $homeScore, float $awayScore, string $status): void
+    {
+        $this->pdo->prepare(
+            'UPDATE matchups SET home_score = ?, away_score = ?, status = ? WHERE id = ?'
+        )->execute([$homeScore, $awayScore, $status, $matchupId]);
+    }
 }
