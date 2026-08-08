@@ -7,6 +7,7 @@ namespace FFB\Controllers;
 use FFB\Http\Request;
 use FFB\Http\Response;
 use FFB\Http\Session;
+use FFB\LeagueClock;
 use FFB\LeagueRepository;
 use FFB\Playoffs\PlayoffException;
 use FFB\Playoffs\PlayoffService;
@@ -28,21 +29,34 @@ final class PlayoffsController
 
     public function create(Request $request, Session $session): Response
     {
-        return $this->run($session, function (int $leagueId, int $seasonId): void {
-            $this->playoffs->create($leagueId, $seasonId);
+        return $this->run($request, $session, function (int $leagueId, int $seasonId, ?string $kickoff): void {
+            $this->playoffs->create($leagueId, $seasonId, $kickoff);
         }, 'The playoff bracket is set.');
     }
 
+    public function advance(Request $request, Session $session): Response
+    {
+        return $this->run($request, $session, function (int $leagueId, int $seasonId, ?string $kickoff): void {
+            $this->playoffs->advance($leagueId, $seasonId, $kickoff);
+        }, 'The next playoff round is open.');
+    }
+
     /**
-     * @param callable(int,int):void $action
+     * @param callable(int,int,?string):void $action
      */
-    private function run(Session $session, callable $action, string $success): Response
+    private function run(Request $request, Session $session, callable $action, string $success): Response
     {
         $leagueId = $this->leagues->currentLeagueId();
         $seasonId = $this->leagues->currentSeasonId();
 
+        $rawKickoff = trim((string) $request->input('kickoff', ''));
+        $kickoff = $rawKickoff === '' ? null : LeagueClock::toIso($rawKickoff);
+        if ($rawKickoff !== '' && $kickoff === null) {
+            return Response::html('Enter a valid lineup-lock date and time.', 400);
+        }
+
         try {
-            $action($leagueId, $seasonId);
+            $action($leagueId, $seasonId, $kickoff);
         } catch (PlayoffException $e) {
             return Response::html($e->getMessage(), $e->status);
         }

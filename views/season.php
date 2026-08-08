@@ -153,6 +153,15 @@ week is settled — it freezes the current standings as the seeds.</p>
     <button type="submit">Save playoff size</button>
 </form>
 <form method="post" action="/admin/playoffs/create">
+    <label>Round 1 lineups lock at (league time, optional)
+        <input type="datetime-local" name="kickoff">
+    </label>
     <button type="submit">Create the playoff bracket</button>
+</form>
+<form method="post" action="/admin/playoffs/advance">
+    <label>Next round lineups lock at (league time, optional)
+        <input type="datetime-local" name="kickoff">
+    </label>
+    <button type="submit">Advance to the next round</button>
 </form>
 <p><a href="/playoffs">View the bracket</a></p>

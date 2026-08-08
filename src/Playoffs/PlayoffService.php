@@ -40,7 +40,7 @@ final class PlayoffService
      *
      * @throws PlayoffException
      */
-    public function create(int $leagueId, int $seasonId): void
+    public function create(int $leagueId, int $seasonId, ?string $kickoffIso = null): void
     {
         if ($this->playoffs->hasBracket($seasonId)) {
             throw new PlayoffException(409, 'The playoff bracket has already been created.');
@@ -74,7 +74,14 @@ final class PlayoffService
         $this->pdo->beginTransaction();
         try {
             $this->playoffs->saveSeeds($leagueId, $seasonId, $qualifiers);
-            $this->openRoundOne($leagueId, $seasonId, $regularWeeks, $qualifiers);
+            $rows = [];
+            foreach (Bracket::firstRoundGames(count($qualifiers)) as $game) {
+                $rows[] = [
+                    'home_team_id' => $qualifiers[$game['high'] - 1],
+                    'away_team_id' => $qualifiers[$game['low'] - 1],
+                ];
+            }
+            $this->openRound($leagueId, $seasonId, $regularWeeks + 1, 1, $rows, $kickoffIso);
             $this->pdo->commit();
         } catch (\Throwable $e) {
             $this->pdo->rollBack();
@@ -83,26 +90,141 @@ final class PlayoffService
     }
 
     /**
-     * Generate Round 1's Matchups from the frozen seeds by standard slotting.
-     * A seed with a bye has no Matchup this round; the higher seed in each game
-     * is home. Sets the playoff week current so the rest of the app points at it.
+     * Advance the bracket: confirm the current round is fully final, work out who
+     * advanced (higher final score; a tie falls to the higher seed — the per-
+     * starter tiebreak lands in a later slice), and open the next round by pairing
+     * those survivors into the next tree slots. Reuses the same week-opening
+     * mechanic as "Start a week".
      *
-     * @param list<int> $qualifiers seed order (index 0 = seed 1)
+     * @throws PlayoffException
      */
-    private function openRoundOne(int $leagueId, int $seasonId, int $regularWeeks, array $qualifiers): void
+    public function advance(int $leagueId, int $seasonId, ?string $kickoffIso = null): void
     {
-        $fieldSize = count($qualifiers);
-        $rows = [];
-        foreach (Bracket::firstRoundGames($fieldSize) as $game) {
-            $rows[] = [
-                'home_team_id' => $qualifiers[$game['high'] - 1],
-                'away_team_id' => $qualifiers[$game['low'] - 1],
-            ];
+        if (!$this->playoffs->hasBracket($seasonId)) {
+            throw new PlayoffException(409, 'Create the playoff bracket first.');
         }
 
-        $week = $regularWeeks + 1;
-        $this->matchups->insertPlayoffRound($leagueId, $seasonId, $week, 1, $rows);
-        $this->settings->setMany($leagueId, $seasonId, ['schedule.current_week' => (string) $week]);
+        $seeds = $this->playoffs->seeds($seasonId);
+        $fieldSize = count($seeds);
+        $totalRounds = Bracket::roundCount($fieldSize);
+        $current = $this->currentRound($seasonId);
+
+        if ($current >= $totalRounds) {
+            throw new PlayoffException(409, 'The playoffs are already decided — there is no next round.');
+        }
+        foreach ($this->matchups->forRound($seasonId, $current) as $m) {
+            if ((string) $m['status'] !== 'final') {
+                throw new PlayoffException(409, "Round {$current} isn't finished yet — every game must be final before advancing.");
+            }
+        }
+
+        $advancers = $this->advancersOutOf($seasonId, $current, $seeds);
+        $rows = [];
+        for ($i = 0; $i < count($advancers); $i += 2) {
+            $rows[] = ['home_team_id' => $advancers[$i], 'away_team_id' => $advancers[$i + 1]];
+        }
+
+        $nextRound = $current + 1;
+        $regularWeeks = (int) ($this->settings->all($leagueId, $seasonId)['schedule.regular_season_weeks'] ?? self::DEFAULT_REGULAR_WEEKS);
+
+        $this->pdo->beginTransaction();
+        try {
+            $this->openRound($leagueId, $seasonId, $regularWeeks + $nextRound, $nextRound, $rows, $kickoffIso);
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * The ordered list of Teams advancing OUT of a round, in bracket-slot order so
+     * that pairing them consecutively yields the next round. Round 1 interleaves
+     * bye seeds (who advance automatically) with the winners of the first-round
+     * games; later rounds are simply their winners in order.
+     *
+     * @param array<int,int> $seeds seed => team_id
+     * @return list<int>
+     */
+    private function advancersOutOf(int $seasonId, int $round, array $seeds): array
+    {
+        $teamSeed = array_flip($seeds);
+
+        if ($round > 1) {
+            $out = [];
+            foreach ($this->matchups->forRound($seasonId, $round) as $m) {
+                $out[] = $this->winnerOf($m, $teamSeed);
+            }
+
+            return $out;
+        }
+
+        $games = $this->matchups->forRound($seasonId, 1);
+        $gameIndex = 0;
+        $out = [];
+        foreach (Bracket::firstRoundPairings(count($seeds)) as [$high, $low]) {
+            if ($low > count($seeds)) {
+                $out[] = $seeds[$high]; // bye: the higher seed advances automatically
+            } else {
+                $out[] = $this->winnerOf($games[$gameIndex++], $teamSeed);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * The Team that won a settled playoff Matchup: higher final score, and on an
+     * exact tie the higher seed (lower seed number). A later slice inserts the
+     * per-starter comparison ahead of the seed backstop.
+     *
+     * @param array<string,mixed> $m
+     * @param array<int,int> $teamSeed team_id => seed
+     */
+    private function winnerOf(array $m, array $teamSeed): int
+    {
+        $home = (int) $m['home_team_id'];
+        $away = (int) $m['away_team_id'];
+        $homeScore = (float) $m['home_score'];
+        $awayScore = (float) $m['away_score'];
+
+        if ($homeScore > $awayScore) {
+            return $home;
+        }
+        if ($awayScore > $homeScore) {
+            return $away;
+        }
+
+        return ($teamSeed[$home] ?? PHP_INT_MAX) < ($teamSeed[$away] ?? PHP_INT_MAX) ? $home : $away;
+    }
+
+    /** The highest playoff round that has been opened, or 0 if none. */
+    private function currentRound(int $seasonId): int
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT MAX(round) FROM matchups WHERE season_id = ? AND round IS NOT NULL'
+        );
+        $stmt->execute([$seasonId]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Open a playoff round: write its Matchups, make its week current, and (when a
+     * kickoff is given) stamp that week's lineup-lock time — the same mechanic as
+     * "Start a week".
+     *
+     * @param list<array{home_team_id:int,away_team_id:int}> $rows
+     */
+    private function openRound(int $leagueId, int $seasonId, int $week, int $round, array $rows, ?string $kickoffIso): void
+    {
+        $this->matchups->insertPlayoffRound($leagueId, $seasonId, $week, $round, $rows);
+
+        $updates = ['schedule.current_week' => (string) $week];
+        if ($kickoffIso !== null && $kickoffIso !== '') {
+            $updates['schedule.week_' . $week . '_kickoff'] = $kickoffIso;
+        }
+        $this->settings->setMany($leagueId, $seasonId, $updates);
     }
 
     /**
