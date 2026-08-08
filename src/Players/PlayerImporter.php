@@ -60,10 +60,11 @@ final class PlayerImporter
             }
 
             $status = $this->str($attributes['status'] ?? null);
+            $searchRank = $this->intOrNull($attributes['search_rank'] ?? null);
             $fullName = $this->fullName($attributes, $team);
             $nflverseId = $this->resolveNflverseId($sleeperId, $attributes, $sleeperToGsis);
 
-            $this->players->upsert($sleeperId, $nflverseId, $fullName, $position, $team, $status);
+            $this->players->upsert($sleeperId, $nflverseId, $fullName, $position, $team, $status, $searchRank);
             $upserted++;
 
             if ($isSkill && $team !== null && $nflverseId === null) {
@@ -119,6 +120,15 @@ final class PlayerImporter
 
         // Team defenses arrive with no name; give them a readable one.
         return $team !== null ? "{$team} Defense" : 'Unknown Player';
+    }
+
+    private function intOrNull(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return is_numeric($value) ? (int) $value : null;
     }
 
     private function str(mixed $value): ?string

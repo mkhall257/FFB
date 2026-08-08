@@ -86,6 +86,22 @@ final class PlayerImporterTest extends DatabaseTestCase
         $this->assertSame('00-0099999', $this->playerRow('8888')['nflverse_id']);
     }
 
+    public function testSleeperSearchRankIsStored(): void
+    {
+        $this->importFixture();
+
+        $this->assertSame(5, (int) $this->playerRow('4046')['search_rank']);
+        $this->assertSame(12, (int) $this->playerRow('6790')['search_rank']);
+    }
+
+    public function testMissingSearchRankIsStoredAsNull(): void
+    {
+        $this->importFixture();
+
+        // The KC defense fixture carries no search_rank.
+        $this->assertNull($this->playerRow('KC')['search_rank']);
+    }
+
     public function testTeamDefenseIsImportedWithFallbackName(): void
     {
         $this->importFixture();

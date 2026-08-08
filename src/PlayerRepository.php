@@ -22,21 +22,23 @@ final class PlayerRepository
         ?string $position,
         ?string $team,
         ?string $status,
+        ?int $searchRank,
     ): void {
         // Uses the VALUES() form of ON DUPLICATE KEY UPDATE for broad MySQL
         // compatibility (the newer "AS new" row-alias syntax requires MySQL
         // 8.0.19+ and is rejected by older/MariaDB servers).
         $stmt = $this->pdo->prepare(
-            'INSERT INTO players (sleeper_id, nflverse_id, full_name, position, nfl_team, status)'
-            . ' VALUES (?, ?, ?, ?, ?, ?)'
+            'INSERT INTO players (sleeper_id, nflverse_id, full_name, position, nfl_team, status, search_rank)'
+            . ' VALUES (?, ?, ?, ?, ?, ?, ?)'
             . ' ON DUPLICATE KEY UPDATE'
             . ' nflverse_id = VALUES(nflverse_id),'
             . ' full_name = VALUES(full_name),'
             . ' position = VALUES(position),'
             . ' nfl_team = VALUES(nfl_team),'
-            . ' status = VALUES(status)'
+            . ' status = VALUES(status),'
+            . ' search_rank = VALUES(search_rank)'
         );
-        $stmt->execute([$sleeperId, $nflverseId, $fullName, $position, $team, $status]);
+        $stmt->execute([$sleeperId, $nflverseId, $fullName, $position, $team, $status, $searchRank]);
     }
 
     public function count(): int
