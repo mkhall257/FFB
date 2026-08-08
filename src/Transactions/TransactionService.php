@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace FFB\Transactions;
 
+use Closure;
 use FFB\LeagueSettingsRepository;
 use FFB\Lineup\LineupService;
 use FFB\LineupRepository;
@@ -22,6 +23,12 @@ use PDOException;
  */
 final class TransactionService
 {
+    /** @var Closure(): int */
+    private Closure $now;
+
+    /**
+     * @param (callable(): int)|null $now current unix time provider (for tests)
+     */
     public function __construct(
         private readonly PDO $pdo,
         private readonly RosterRepository $rosters,
@@ -30,7 +37,9 @@ final class TransactionService
         private readonly TransactionRepository $ledger,
         private readonly LineupService $lineups,
         private readonly LineupRepository $lineupRepo,
+        ?callable $now = null,
     ) {
+        $this->now = $now !== null ? Closure::fromCallable($now) : static fn (): int => time();
     }
 
     /**
@@ -97,6 +106,178 @@ final class TransactionService
             }
             throw $e;
         }
+    }
+
+    /** How long a Trade proposal lives before it can no longer be accepted. */
+    public const TRADE_TTL_HOURS = 48;
+
+    /**
+     * A Manager offers a Trade to another Team: some of their Players for some of
+     * the target's. Nothing moves — a pending proposal is recorded that only the
+     * target may accept or reject (and only the proposer may cancel), expiring
+     * after TRADE_TTL_HOURS.
+     *
+     * @param list<string> $offeredPlayerIds  Players the proposer gives (must be on the proposer's Roster)
+     * @param list<string> $requestedPlayerIds Players the proposer wants (must be on the target's Roster)
+     * @return int the new Transaction id
+     * @throws TransactionException on any invalid proposal
+     */
+    public function proposeTrade(
+        int $leagueId,
+        int $seasonId,
+        int $proposerTeamId,
+        int $targetTeamId,
+        ?int $userId,
+        array $offeredPlayerIds,
+        array $requestedPlayerIds,
+    ): int {
+        if ($proposerTeamId === $targetTeamId) {
+            throw new TransactionException(422, 'You cannot trade with yourself.');
+        }
+        $offeredPlayerIds = $this->cleanIds($offeredPlayerIds);
+        $requestedPlayerIds = $this->cleanIds($requestedPlayerIds);
+        if ($offeredPlayerIds === [] || $requestedPlayerIds === []) {
+            throw new TransactionException(422, 'A trade needs at least one player from each team.');
+        }
+
+        foreach ($offeredPlayerIds as $pid) {
+            if ($this->rosters->teamForPlayer($seasonId, $pid) !== $proposerTeamId) {
+                throw new TransactionException(422, 'You can only offer players on your own team.');
+            }
+        }
+        foreach ($requestedPlayerIds as $pid) {
+            if ($this->rosters->teamForPlayer($seasonId, $pid) !== $targetTeamId) {
+                throw new TransactionException(422, 'You can only request players on the other team.');
+            }
+        }
+
+        $expiresAt = date('Y-m-d H:i:s', $this->clock() + self::TRADE_TTL_HOURS * 3600);
+
+        $this->pdo->beginTransaction();
+        try {
+            $txnId = $this->ledger->createHeader(
+                $leagueId, $seasonId, 'trade', 'pending', 'proposed',
+                $proposerTeamId, $targetTeamId, $expiresAt, $userId,
+            );
+            foreach ($offeredPlayerIds as $pid) {
+                $this->ledger->addItem($txnId, $pid, $proposerTeamId, $targetTeamId, null);
+            }
+            foreach ($requestedPlayerIds as $pid) {
+                $this->ledger->addItem($txnId, $pid, $targetTeamId, $proposerTeamId, null);
+            }
+            $this->pdo->commit();
+
+            return $txnId;
+        } catch (PDOException $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * The target Team accepts a pending Trade: both Rosters swap atomically. The
+     * proposal is re-validated first — every Player must still sit on the Team the
+     * proposal expects (ownership can drift between propose and accept).
+     *
+     * @throws TransactionException when the acting Team is not the target, the
+     *   proposal is not pending, or it is no longer valid
+     */
+    public function acceptTrade(int $leagueId, int $seasonId, int $txnId, int $actingTeamId, ?int $userId): void
+    {
+        $txn = $this->requireProposedTrade($txnId);
+        if ((int) $txn['accepted_by_team'] !== $actingTeamId) {
+            throw new TransactionException(403, 'Only the team the trade was offered to can accept it.');
+        }
+
+        $items = $this->ledger->items($txnId);
+        foreach ($items as $it) {
+            if ($this->rosters->teamForPlayer($seasonId, (string) $it['player_id']) !== (int) $it['from_team_id']) {
+                throw new TransactionException(409, 'This trade is no longer valid — a player involved has changed teams.');
+            }
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            foreach ($items as $it) {
+                $playerId = (string) $it['player_id'];
+                $fromTeam = (int) $it['from_team_id'];
+                $toTeam = (int) $it['to_team_id'];
+                $prior = $this->rosters->acquiredOf($seasonId, $playerId);
+                $this->ledger->setItemPriorAcquired((int) $it['id'], $prior);
+                $this->rosters->movePlayer($seasonId, $playerId, $toTeam, 'trade');
+                $this->releaseFromLineup($leagueId, $seasonId, $fromTeam, $playerId);
+            }
+            $this->ledger->setStatus($txnId, 'applied');
+            $this->ledger->setProposalOutcome($txnId, 'accepted', $actingTeamId);
+            $this->pdo->commit();
+        } catch (PDOException $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * The target Team declines a pending Trade. Nothing moves.
+     */
+    public function rejectTrade(int $seasonId, int $txnId, int $actingTeamId): void
+    {
+        $txn = $this->requireProposedTrade($txnId);
+        if ((int) $txn['accepted_by_team'] !== $actingTeamId) {
+            throw new TransactionException(403, 'Only the team the trade was offered to can reject it.');
+        }
+        $this->ledger->setProposalOutcome($txnId, 'rejected');
+    }
+
+    /**
+     * The proposing Team withdraws its pending Trade. Nothing moves.
+     */
+    public function cancelTrade(int $seasonId, int $txnId, int $actingTeamId): void
+    {
+        $txn = $this->requireProposedTrade($txnId);
+        if ((int) $txn['proposed_by_team'] !== $actingTeamId) {
+            throw new TransactionException(403, 'Only the team that proposed the trade can cancel it.');
+        }
+        $this->ledger->setProposalOutcome($txnId, 'cancelled');
+    }
+
+    /**
+     * @return array<string,mixed>
+     * @throws TransactionException when the Transaction is missing, not a Trade,
+     *   or no longer an open proposal
+     */
+    private function requireProposedTrade(int $txnId): array
+    {
+        $txn = $this->ledger->find($txnId);
+        if ($txn === null || $txn['type'] !== 'trade') {
+            throw new TransactionException(404, 'Trade not found.');
+        }
+        if ($txn['proposal_outcome'] !== 'proposed') {
+            throw new TransactionException(409, 'This trade is no longer open.');
+        }
+
+        return $txn;
+    }
+
+    /**
+     * @param list<string> $ids
+     * @return list<string>
+     */
+    private function cleanIds(array $ids): array
+    {
+        $out = [];
+        foreach ($ids as $id) {
+            $id = trim((string) $id);
+            if ($id !== '' && !in_array($id, $out, true)) {
+                $out[] = $id;
+            }
+        }
+
+        return $out;
+    }
+
+    private function clock(): int
+    {
+        return ($this->now)();
     }
 
     /**

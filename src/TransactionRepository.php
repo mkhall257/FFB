@@ -116,14 +116,70 @@ final class TransactionRepository
         $stmt->execute([$seasonId]);
         /** @var list<array<string,mixed>> $headers */
         $headers = $stmt->fetchAll();
+
+        return $this->attachItems($headers);
+    }
+
+    public function setItemPriorAcquired(int $itemId, ?string $priorAcquired): void
+    {
+        $this->pdo->prepare(
+            'UPDATE transaction_items SET prior_acquired = ? WHERE id = ?'
+        )->execute([$priorAcquired, $itemId]);
+    }
+
+    /**
+     * Open (proposed) Trades involving a Team, as either the proposer or the
+     * target, newest first, each enriched with its line items (Player and Team
+     * names). Used to render the Manager's incoming and outgoing offers.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function openTradesForTeam(int $seasonId, int $teamId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT * FROM transactions'
+            . " WHERE season_id = ? AND type = 'trade' AND proposal_outcome = 'proposed'"
+            . ' AND (proposed_by_team = ? OR accepted_by_team = ?)'
+            . ' ORDER BY created_at DESC, id DESC'
+        );
+        $stmt->execute([$seasonId, $teamId, $teamId]);
+        /** @var list<array<string,mixed>> $rows */
+        $rows = $stmt->fetchAll();
+
+        return $this->attachItems($rows);
+    }
+
+    /**
+     * How many open Trade proposals are awaiting this Team's response (offers
+     * made TO them). Drives the incoming-offers badge.
+     */
+    public function incomingProposalCount(int $seasonId, int $teamId): int
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT COUNT(*) FROM transactions'
+            . " WHERE season_id = ? AND type = 'trade' AND proposal_outcome = 'proposed'"
+            . ' AND accepted_by_team = ?'
+        );
+        $stmt->execute([$seasonId, $teamId]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Attach enriched line items to a set of header rows.
+     *
+     * @param list<array<string,mixed>> $headers
+     * @return list<array<string,mixed>>
+     */
+    private function attachItems(array $headers): array
+    {
         if ($headers === []) {
             return [];
         }
-
         $ids = array_map(static fn ($h): int => (int) $h['id'], $headers);
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $itemStmt = $this->pdo->prepare(
-            'SELECT ti.transaction_id, ti.player_id, ti.from_team_id, ti.to_team_id,'
+        $stmt = $this->pdo->prepare(
+            'SELECT ti.transaction_id, ti.id AS item_id, ti.player_id, ti.from_team_id, ti.to_team_id,'
             . ' p.full_name AS player_name,'
             . ' tf.name AS from_team_name, tt.name AS to_team_name'
             . ' FROM transaction_items ti'
@@ -133,15 +189,13 @@ final class TransactionRepository
             . " WHERE ti.transaction_id IN ({$placeholders})"
             . ' ORDER BY ti.id'
         );
-        $itemStmt->execute($ids);
-
-        $itemsByTxn = [];
-        foreach ($itemStmt->fetchAll() as $row) {
-            $itemsByTxn[(int) $row['transaction_id']][] = $row;
+        $stmt->execute($ids);
+        $byTxn = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $byTxn[(int) $row['transaction_id']][] = $row;
         }
-
         foreach ($headers as &$h) {
-            $h['items'] = $itemsByTxn[(int) $h['id']] ?? [];
+            $h['items'] = $byTxn[(int) $h['id']] ?? [];
         }
         unset($h);
 

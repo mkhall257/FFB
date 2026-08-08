@@ -15,6 +15,7 @@ use FFB\Controllers\PlayersController;
 use FFB\Controllers\ScoreboardController;
 use FFB\Controllers\SeasonController;
 use FFB\Controllers\StandingsController;
+use FFB\Controllers\TradesController;
 use FFB\Controllers\TransactionsController;
 use FFB\Draft\AutoPickStrategy;
 use FFB\Draft\DraftService;
@@ -71,6 +72,7 @@ final class Kernel
         $season = new SeasonController($settings, $leagues, $view);
         $playersPage = new PlayersController($transactionService, $players, $rosters, $teams, $leagues, $view);
         $transactionsPage = new TransactionsController($transactionLedger, $leagues, $view);
+        $tradesPage = new TradesController($transactionService, $transactionLedger, $rosters, $teams, $leagues, $view);
 
         $router = new Router();
         $router->get('/login', [$login, 'show']);
@@ -84,6 +86,11 @@ final class Kernel
         $router->get('/players', [$playersPage, 'index'], 'authenticated');
         $router->post('/players/add', [$playersPage, 'add'], 'authenticated');
         $router->get('/transactions', [$transactionsPage, 'index'], 'authenticated');
+        $router->get('/trades', [$tradesPage, 'index'], 'authenticated');
+        $router->post('/trades/propose', [$tradesPage, 'propose'], 'authenticated');
+        $router->post('/trades/accept', [$tradesPage, 'accept'], 'authenticated');
+        $router->post('/trades/reject', [$tradesPage, 'reject'], 'authenticated');
+        $router->post('/trades/cancel', [$tradesPage, 'cancel'], 'authenticated');
 
         $router->get('/admin', [$admin, 'index'], 'commissioner');
         $router->post('/admin/teams', [$admin, 'createTeam'], 'commissioner');

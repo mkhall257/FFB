@@ -1,17 +1,20 @@
 -- The post-Draft Transaction ledger header (see CONTEXT.md, ADR-0010). One row
 -- per Transaction: an Add/Drop, a Trade, or a Commissioner manual roster-edit.
--- `status` is the ledger state (applied vs reversed); an Add/Drop and a
--- commish_edit are born 'applied', a Trade only becomes 'applied' when accepted.
+-- `status` is the ledger state: an Add/Drop and a commish_edit are born
+-- 'applied'; a Trade is born 'pending' (a proposal moves nothing) and becomes
+-- 'applied' only when accepted; a reversed Transaction becomes 'reversed'.
 -- `proposal_outcome` is the Trade-only lifecycle (NULL for the other types).
--- The `transaction_items` lines carry the actual Player moves; this header is
--- the derived audit record over the live `rosters` membership.
+-- For a Trade, `proposed_by_team` is the offering Team and `accepted_by_team` is
+-- the Team the offer is made TO (the only Team that may accept/reject it). The
+-- `transaction_items` lines carry the actual Player moves; this header is the
+-- derived audit record over the live `rosters` membership.
 
 CREATE TABLE transactions (
     id               INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     league_id        INT UNSIGNED NOT NULL,
     season_id        INT UNSIGNED NOT NULL,
     type             ENUM('add_drop', 'trade', 'commish_edit') NOT NULL,
-    status           ENUM('applied', 'reversed') NOT NULL DEFAULT 'applied',
+    status           ENUM('pending', 'applied', 'reversed') NOT NULL DEFAULT 'applied',
     proposal_outcome ENUM('proposed', 'accepted', 'rejected', 'cancelled', 'expired') NULL,
     proposed_by_team INT UNSIGNED NULL,
     accepted_by_team INT UNSIGNED NULL,
