@@ -9,6 +9,7 @@
 <h1>Welcome, <?= e($displayName) ?></h1>
 <p>You are logged in as <?= e($role) ?>.</p>
 <p><a href="/draft">Draft room</a></p>
+<p><a href="/scoreboard">Scoreboard</a> · <a href="/standings">Standings</a> · <a href="/lineup">My Lineup</a></p>
 <?php if ($role === 'commissioner'): ?>
     <p><a href="/admin">Commissioner tools</a></p>
 <?php endif; ?>
