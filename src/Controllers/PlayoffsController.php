@@ -54,6 +54,20 @@ final class PlayoffsController
         }, 'The next playoff round is open.');
     }
 
+    public function correct(Request $request, Session $session): Response
+    {
+        return $this->run($request, $session, function (int $leagueId, int $seasonId, ?string $kickoff): void {
+            $this->playoffs->correctLastRound($leagueId, $seasonId);
+        }, 'The last round was undone — fix the scores and advance again.');
+    }
+
+    public function reset(Request $request, Session $session): Response
+    {
+        return $this->run($request, $session, function (int $leagueId, int $seasonId, ?string $kickoff): void {
+            $this->playoffs->reset($leagueId, $seasonId);
+        }, 'The bracket was reset.');
+    }
+
     /**
      * @param callable(int,int,?string):void $action
      */

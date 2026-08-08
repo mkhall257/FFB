@@ -53,6 +53,31 @@ final class MatchupRepository
         }
     }
 
+    /** Delete one playoff round's Matchups (used to undo the latest advancement). */
+    public function clearPlayoffRound(int $seasonId, int $round): void
+    {
+        $this->pdo->prepare('DELETE FROM matchups WHERE season_id = ? AND round = ?')
+            ->execute([$seasonId, $round]);
+    }
+
+    /** Delete every playoff Matchup for a Season (used to reset the bracket). */
+    public function clearAllPlayoffs(int $seasonId): void
+    {
+        $this->pdo->prepare('DELETE FROM matchups WHERE season_id = ? AND round IS NOT NULL')
+            ->execute([$seasonId]);
+    }
+
+    /** Whether any playoff Matchup has already been settled (a played game). */
+    public function anyPlayoffFinal(int $seasonId): bool
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT 1 FROM matchups WHERE season_id = ? AND round IS NOT NULL AND status = 'final' LIMIT 1"
+        );
+        $stmt->execute([$seasonId]);
+
+        return $stmt->fetchColumn() !== false;
+    }
+
     /**
      * The Matchups of a playoff round, ordered by id.
      *

@@ -164,4 +164,10 @@ week is settled — it freezes the current standings as the seeds.</p>
     </label>
     <button type="submit">Advance to the next round</button>
 </form>
+<form method="post" action="/admin/playoffs/correct">
+    <button type="submit">Undo the last round (correct a result)</button>
+</form>
+<form method="post" action="/admin/playoffs/reset">
+    <button type="submit">Reset the bracket (before any games are played)</button>
+</form>
 <p><a href="/playoffs">View the bracket</a></p>

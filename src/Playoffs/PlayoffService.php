@@ -140,6 +140,78 @@ final class PlayoffService
     }
 
     /**
+     * Undo the most recent advancement: delete the latest round's Matchups and
+     * make the prior round current again, so the Commissioner can let corrected
+     * scores settle and advance afresh. Non-cascading — it only ever removes the
+     * latest round, so no later round is ever stranded.
+     *
+     * @throws PlayoffException
+     */
+    public function correctLastRound(int $leagueId, int $seasonId): void
+    {
+        if (!$this->playoffs->hasBracket($seasonId)) {
+            throw new PlayoffException(409, 'Create the playoff bracket first.');
+        }
+
+        $current = $this->currentRound($seasonId);
+        if ($current < 2) {
+            throw new PlayoffException(
+                409,
+                "There's no advanced round to correct yet — use Reset to redo the whole bracket before any games are played.",
+            );
+        }
+
+        $regularWeeks = (int) ($this->settings->all($leagueId, $seasonId)['schedule.regular_season_weeks'] ?? self::DEFAULT_REGULAR_WEEKS);
+
+        $this->pdo->beginTransaction();
+        try {
+            $this->matchups->clearPlayoffRound($seasonId, $current);
+            $this->settings->setMany($leagueId, $seasonId, [
+                'schedule.current_week' => (string) ($regularWeeks + $current - 1),
+            ]);
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Tear the bracket down and clear the frozen seeds, so it can be re-created
+     * (e.g. after fixing the field size). Only allowed before any playoff game has
+     * been played — history is never rewritten mid-postseason.
+     *
+     * @throws PlayoffException
+     */
+    public function reset(int $leagueId, int $seasonId): void
+    {
+        if (!$this->playoffs->hasBracket($seasonId)) {
+            throw new PlayoffException(409, 'There is no bracket to reset.');
+        }
+        if ($this->matchups->anyPlayoffFinal($seasonId)) {
+            throw new PlayoffException(
+                409,
+                "Can't reset — playoff games have already been played. Use \"correct last round\" instead.",
+            );
+        }
+
+        $regularWeeks = (int) ($this->settings->all($leagueId, $seasonId)['schedule.regular_season_weeks'] ?? self::DEFAULT_REGULAR_WEEKS);
+
+        $this->pdo->beginTransaction();
+        try {
+            $this->matchups->clearAllPlayoffs($seasonId);
+            $this->playoffs->clearSeeds($seasonId);
+            $this->settings->setMany($leagueId, $seasonId, [
+                'schedule.current_week' => (string) $regularWeeks,
+            ]);
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
      * A read model of the whole bracket for rendering: the frozen seeds, each
      * opened round (with its games, scores, and settled winners), Round-1 byes,
      * and the Champion once the final is settled. Returns ['exists' => false] when

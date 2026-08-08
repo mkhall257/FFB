@@ -125,6 +125,8 @@ final class Kernel
         $router->post('/admin/season/playoffs', [$season, 'savePlayoffs'], 'commissioner');
         $router->post('/admin/playoffs/create', [$playoffsPage, 'create'], 'commissioner');
         $router->post('/admin/playoffs/advance', [$playoffsPage, 'advance'], 'commissioner');
+        $router->post('/admin/playoffs/correct', [$playoffsPage, 'correct'], 'commissioner');
+        $router->post('/admin/playoffs/reset', [$playoffsPage, 'reset'], 'commissioner');
 
         $router->get('/admin/draft', [$draft, 'setup'], 'commissioner');
         $router->post('/admin/draft/config', [$draft, 'configure'], 'commissioner');
