@@ -8,6 +8,8 @@
  * @var string $kickoffPrefill    datetime-local value
  * @var array<string,string> $scoring   scoring key (without prefix) => value
  * @var array<string,string> $roster    roster key (without prefix) => value
+ * @var string $tradeDeadlineWeek
+ * @var string $playoffTeamCount
  * @var ?string $flash
  * @var ?string $error
  */
@@ -139,3 +141,18 @@ open all season). Add/Drop is never affected.</p>
         name="trade_deadline_week" value="<?= e($tradeDeadlineWeek) ?>" placeholder="none">
     <button type="submit">Save trade deadline</button>
 </form>
+
+<h2>Playoffs</h2>
+<p>How many teams make the single-elimination bracket. Top seeds get a first-round
+bye when this isn't a power of two. Create the bracket once the final regular-season
+week is settled — it freezes the current standings as the seeds.</p>
+<form method="post" action="/admin/season/playoffs">
+    <label for="team_count">How many teams make the playoffs</label>
+    <input id="team_count" type="number" min="2" step="1"
+        name="team_count" value="<?= e($playoffTeamCount) ?>">
+    <button type="submit">Save playoff size</button>
+</form>
+<form method="post" action="/admin/playoffs/create">
+    <button type="submit">Create the playoff bracket</button>
+</form>
+<p><a href="/playoffs">View the bracket</a></p>

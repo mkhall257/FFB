@@ -84,6 +84,21 @@ final class SeasonController
         return Response::redirect('/admin/season');
     }
 
+    public function savePlayoffs(Request $request, Session $session): Response
+    {
+        $raw = trim((string) $request->input('team_count', ''));
+        if ($raw === '' || !ctype_digit($raw) || (int) $raw < 2) {
+            return $this->render(null, 'Playoff teams must be a whole number, 2 or more.', 400);
+        }
+
+        $this->settings->setMany($this->leagues->currentLeagueId(), $this->leagues->currentSeasonId(), [
+            'playoffs.team_count' => (string) (int) $raw,
+        ]);
+        $session->set('flash', "{$raw} teams will make the playoffs.");
+
+        return Response::redirect('/admin/season');
+    }
+
     public function saveScoring(Request $request, Session $session): Response
     {
         return $this->saveGroup($request, $session, 'scoring', 'Scoring settings saved.');
@@ -166,6 +181,7 @@ final class SeasonController
                 'seasonYear' => (int) ($all['schedule.season_year'] ?? (int) date('Y')),
                 'kickoffPrefill' => $this->prefillKickoff(),
                 'tradeDeadlineWeek' => (string) ($all['schedule.trade_deadline_week'] ?? ''),
+                'playoffTeamCount' => (string) ($all['playoffs.team_count'] ?? '4'),
                 'scoring' => $scoring,
                 'roster' => $roster,
                 'flash' => $flash,

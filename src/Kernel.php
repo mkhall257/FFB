@@ -12,6 +12,7 @@ use FFB\Controllers\LineupController;
 use FFB\Controllers\LoginController;
 use FFB\Controllers\PlayerAdminController;
 use FFB\Controllers\PlayersController;
+use FFB\Controllers\PlayoffsController;
 use FFB\Controllers\RosterAdminController;
 use FFB\Controllers\ScoreboardController;
 use FFB\Controllers\SeasonController;
@@ -23,6 +24,7 @@ use FFB\Draft\DraftService;
 use FFB\Http\Router;
 use FFB\Lineup\LineupService;
 use FFB\Lineup\WeekLock;
+use FFB\Playoffs\PlayoffService;
 use FFB\Schedule\ScheduleGenerator;
 use FFB\Schedule\ScheduleService;
 use FFB\Transactions\TransactionService;
@@ -52,6 +54,7 @@ final class Kernel
         $rosters = new RosterRepository($pdo);
         $settings = new LeagueSettingsRepository($pdo);
         $matchups = new MatchupRepository($pdo);
+        $playoffRepo = new PlayoffRepository($pdo);
         $lineupRepo = new LineupRepository($pdo);
         $transactionLedger = new TransactionRepository($pdo);
         $schedule = new ScheduleService(new ScheduleGenerator(), $matchups, $teams, $settings);
@@ -75,6 +78,8 @@ final class Kernel
         $transactionsPage = new TransactionsController($transactionService, $transactionLedger, $leagues, $view);
         $tradesPage = new TradesController($transactionService, $transactionLedger, $rosters, $teams, $leagues, $view);
         $rosterAdmin = new RosterAdminController($transactionService, $rosters, $players, $teams, $leagues, $view);
+        $playoffService = new PlayoffService($pdo, $playoffRepo, new StandingsService($pdo), $settings, $teams);
+        $playoffsPage = new PlayoffsController($playoffService, $leagues);
 
         $router = new Router();
         $router->get('/login', [$login, 'show']);
@@ -109,6 +114,8 @@ final class Kernel
         $router->post('/admin/season/scoring', [$season, 'saveScoring'], 'commissioner');
         $router->post('/admin/season/roster', [$season, 'saveRoster'], 'commissioner');
         $router->post('/admin/season/trades', [$season, 'saveTrades'], 'commissioner');
+        $router->post('/admin/season/playoffs', [$season, 'savePlayoffs'], 'commissioner');
+        $router->post('/admin/playoffs/create', [$playoffsPage, 'create'], 'commissioner');
 
         $router->get('/admin/draft', [$draft, 'setup'], 'commissioner');
         $router->post('/admin/draft/config', [$draft, 'configure'], 'commissioner');
