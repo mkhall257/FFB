@@ -14,6 +14,7 @@ use FFB\Http\Session;
 use FFB\LeagueRepository;
 use FFB\LeagueSettingsRepository;
 use FFB\PlayerRepository;
+use FFB\RosterRepository;
 use FFB\TeamRepository;
 use FFB\View;
 use PDO;
@@ -50,6 +51,7 @@ final class DraftController
         private readonly LeagueSettingsRepository $settings,
         private readonly TeamRepository $teams,
         private readonly PlayerRepository $players,
+        private readonly RosterRepository $rosters,
         private readonly LeagueRepository $leagues,
         private readonly View $view,
     ) {
@@ -366,6 +368,8 @@ final class DraftController
         try {
             $this->picks->clearPick((int) $last['id']);
             $this->drafts->revertTo((int) $draft['id'], (int) $last['overall_pick'], (int) $draft['pick_seconds']);
+            // Reopening a completed Draft invalidates the materialized rosters.
+            $this->rosters->clearForSeason($this->leagues->currentSeasonId());
             $this->pdo->commit();
         } catch (\Throwable $e) {
             $this->pdo->rollBack();
@@ -387,6 +391,7 @@ final class DraftController
         try {
             $this->picks->clearBoard((int) $draft['id']);
             $this->drafts->resetToSetup((int) $draft['id']);
+            $this->rosters->clearForSeason($this->leagues->currentSeasonId());
             $this->pdo->commit();
         } catch (\Throwable $e) {
             $this->pdo->rollBack();

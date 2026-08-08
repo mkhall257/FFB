@@ -25,6 +25,9 @@ foreach ($board as $row) {
 $made = array_values(array_filter($board, static fn ($r) => $r['player_id'] !== null));
 $recent = array_slice(array_reverse($made), 0, 10);
 ?>
+<?php if ($state === 'live' && !$myTurn && !$isCommissioner): ?>
+    <script>setTimeout(function () { location.reload(); }, 2500);</script>
+<?php endif; ?>
 <h1>Draft room</h1>
 <p><a href="/">Home</a></p>
 
@@ -34,7 +37,25 @@ $recent = array_slice(array_reverse($made), 0, 10);
 <?php if ($draft === null || $state === 'setup' || $state === 'ready'): ?>
     <p>The draft hasn't started yet.<?= $state === 'ready' ? ' It has been finalized — hang tight for the commissioner to start it.' : '' ?></p>
 <?php elseif ($state === 'complete'): ?>
-    <p>The draft is complete. Final results below.</p>
+    <p>The draft is complete. Final rosters below.</p>
+    <?php
+    $rostersByTeam = [];
+    foreach ($board as $row) {
+        if ($row['player_id'] !== null) {
+            $rostersByTeam[(string) $row['team_name']][] = $row;
+        }
+    }
+    ?>
+    <div>
+        <?php foreach ($rostersByTeam as $teamName => $rows): ?>
+            <h3><?= e((string) $teamName) ?></h3>
+            <ul>
+                <?php foreach ($rows as $r): ?>
+                    <li><?= e((string) $r['player_name']) ?> (<?= e((string) $r['position']) ?>)</li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endforeach; ?>
+    </div>
 <?php else: ?>
     <p>
         Status: <strong><?= e($state) ?></strong>.

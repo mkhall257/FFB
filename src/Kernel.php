@@ -36,6 +36,7 @@ final class Kernel
         $drafts = new DraftRepository($pdo);
         $draftPicks = new DraftPickRepository($pdo);
         $draftQueues = new DraftQueueRepository($pdo);
+        $rosters = new RosterRepository($pdo);
         $settings = new LeagueSettingsRepository($pdo);
 
         $login = new LoginController($auth, $leagues, $view);
@@ -43,9 +44,9 @@ final class Kernel
         $admin = new AdminController($pdo, $teams, $users, $leagues, $view);
         $playerAdmin = new PlayerAdminController($players, $syncLog, $view);
         $autoPick = new AutoPickStrategy($draftQueues, $draftPicks, $players);
-        $draftService = new DraftService($pdo, $drafts, $draftPicks, $players, $autoPick, $settings, $leagues);
+        $draftService = new DraftService($pdo, $drafts, $draftPicks, $players, $autoPick, $rosters, $settings, $leagues);
 
-        $draft = new DraftController($pdo, $drafts, $draftPicks, $draftService, $settings, $teams, $players, $leagues, $view);
+        $draft = new DraftController($pdo, $drafts, $draftPicks, $draftService, $settings, $teams, $players, $rosters, $leagues, $view);
         $draftRoom = new DraftRoomController($draftService, $drafts, $draftPicks, $draftQueues, $teams, $players, $leagues, $view);
 
         $router = new Router();

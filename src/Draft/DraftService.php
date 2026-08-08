@@ -9,6 +9,7 @@ use FFB\DraftRepository;
 use FFB\LeagueRepository;
 use FFB\LeagueSettingsRepository;
 use FFB\PlayerRepository;
+use FFB\RosterRepository;
 use PDO;
 use PDOException;
 
@@ -29,6 +30,7 @@ final class DraftService
         private readonly DraftPickRepository $picks,
         private readonly PlayerRepository $players,
         private readonly AutoPickStrategy $autoPick,
+        private readonly RosterRepository $rosters,
         private readonly LeagueSettingsRepository $settings,
         private readonly LeagueRepository $leagues,
     ) {
@@ -174,6 +176,12 @@ final class DraftService
 
         if ($next > $this->picks->totalPicks($draftId)) {
             $this->drafts->complete($draftId);
+            // The completed board becomes each Team's Season Roster (Wave 3 input).
+            $this->rosters->materializeFromDraft(
+                $draftId,
+                $this->leagues->currentLeagueId(),
+                $this->leagues->currentSeasonId(),
+            );
 
             return;
         }
