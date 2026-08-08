@@ -7,6 +7,7 @@ namespace FFB;
 use FFB\Controllers\AdminController;
 use FFB\Controllers\HomeController;
 use FFB\Controllers\LoginController;
+use FFB\Controllers\PlayerAdminController;
 use FFB\Http\Router;
 use PDO;
 
@@ -26,9 +27,13 @@ final class Kernel
         $auth = new Auth($users);
         $leagues = new LeagueRepository($pdo);
 
+        $players = new PlayerRepository($pdo);
+        $syncLog = new PlayerSyncLogRepository($pdo);
+
         $login = new LoginController($auth, $leagues, $view);
         $home = new HomeController($view);
         $admin = new AdminController($pdo, $teams, $users, $leagues, $view);
+        $playerAdmin = new PlayerAdminController($players, $syncLog, $view);
 
         $router = new Router();
         $router->get('/login', [$login, 'show']);
@@ -41,6 +46,7 @@ final class Kernel
         $router->post('/admin/managers', [$admin, 'createManager'], 'commissioner');
         $router->post('/admin/managers/reset', [$admin, 'resetPassword'], 'commissioner');
         $router->post('/admin/managers/status', [$admin, 'setManagerStatus'], 'commissioner');
+        $router->get('/admin/unmatched-players', [$playerAdmin, 'unmatched'], 'commissioner');
 
         return $router;
     }

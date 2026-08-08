@@ -1,0 +1,74 @@
+{
+    "4046": {
+        "player_id": "4046",
+        "full_name": "Pat Testman",
+        "first_name": "Pat",
+        "last_name": "Testman",
+        "position": "QB",
+        "team": "KC",
+        "status": "Active",
+        "active": true,
+        "gsis_id": ""
+    },
+    "6790": {
+        "player_id": "6790",
+        "full_name": "Dallas Receiver",
+        "position": "WR",
+        "team": "DAL",
+        "status": "Active",
+        "active": true,
+        "gsis_id": ""
+    },
+    "9999": {
+        "player_id": "9999",
+        "full_name": "Undrafted Rookie",
+        "position": "RB",
+        "team": "TB",
+        "status": "Active",
+        "active": true,
+        "gsis_id": ""
+    },
+    "1234": {
+        "player_id": "1234",
+        "full_name": "Retired Guy",
+        "position": "WR",
+        "team": null,
+        "status": "Inactive",
+        "active": false,
+        "gsis_id": ""
+    },
+    "5555": {
+        "player_id": "5555",
+        "full_name": "Free Agent QB",
+        "position": "QB",
+        "team": null,
+        "status": "Active",
+        "active": true,
+        "gsis_id": ""
+    },
+    "KC": {
+        "player_id": "KC",
+        "full_name": null,
+        "position": "DEF",
+        "team": "KC",
+        "status": null
+    },
+    "7777": {
+        "player_id": "7777",
+        "full_name": "Big Lineman",
+        "position": "OT",
+        "team": "NE",
+        "status": "Active",
+        "active": true,
+        "gsis_id": ""
+    },
+    "8888": {
+        "player_id": "8888",
+        "full_name": "Niner Wideout",
+        "position": "WR",
+        "team": "SF",
+        "status": "Active",
+        "active": true,
+        "gsis_id": " 00-0099999"
+    }
+}

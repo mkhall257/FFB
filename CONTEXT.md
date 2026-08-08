@@ -101,5 +101,9 @@ The external API that provides the canonical Player universe and the Live Score 
 **nflverse**:
 The external source of official weekly NFL statistics, used to compute the Official Score.
 
+**Player ID crosswalk**:
+The external reference file that maps a Player's Sleeper id to its nflverse (gsis) id, used to link the two data sources. Sourced from the DynastyProcess `db_playerids.csv`.
+_Avoid_: ID map, lookup table
+
 **Unmatched Player**:
 A Player in the Sleeper-sourced universe that the system could not automatically link to nflverse stats. Surfaced to the Commissioner for manual review so scoring gaps are caught before they affect results.
