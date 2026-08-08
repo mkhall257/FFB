@@ -109,11 +109,16 @@ You should see something like `upserted 3228 players, 173 unmatched`.
 Then Control Panel → **Cron Jobs** → add a **daily** job:
 
 ```
-/usr/bin/php /home/USER/FFB/cron/sync_players.php
+/usr/local/bin/php83.cli /home/USER/private/FFB/cron/sync_players.php
 ```
 
-(Use the PHP CLI path and absolute project path for your account — daily is
+(Use your account's real **PHP 8.3 CLI** and absolute project path — daily is
 plenty during the preseason.)
+
+> **ICDSoft note:** the default `/usr/bin/php` is ancient **PHP 5.6** and will
+> fail. Use **`/usr/local/bin/php83.cli`**, and the project lives under
+> **`~/private/FFB`** (so `/home/michaelkhall/private/FFB/...`). All cron lines
+> below follow the same pattern.
 
 ## 9a. Wave 3 scoring cron jobs (in-season)
 
@@ -124,15 +129,20 @@ and settle them to official:
 evening). Fetches Sleeper stats and updates the current week's Matchup scores:
 
 ```
-/usr/bin/php /home/USER/FFB/cron/live_scores.php
+/usr/local/bin/php83.cli /home/USER/private/FFB/cron/live_scores.php
 ```
 
 **Official settlement** — once daily (e.g. Tue 06:00). Ingests nflverse official
 stats for the completed week, rescores it as final, and locks it:
 
 ```
-/usr/bin/php /home/USER/FFB/cron/settle_official.php
+/usr/local/bin/php83.cli /home/USER/private/FFB/cron/settle_official.php
 ```
+
+These two crons also cover the **Playoffs** (Wave 5) with no extra setup — a
+playoff round is just `round`-tagged Matchups in the same week machinery, so live
+scoring and settlement handle it exactly like a regular week. The Commissioner
+just starts/advances each playoff week from Season control.
 
 Both read Commissioner-maintained `league_settings`. Set these from the
 **Commissioner tools → Season control** page (`/admin/season`) — no database
@@ -156,6 +166,18 @@ complete. The optional **trade deadline** is set from **Season control**
 (`/players`), **Trades** (`/trades`), and **Activity** (`/transactions`); the
 Commissioner reverses from **Activity** and fixes rosters by hand from **Roster
 edit** (`/admin/roster-edit`).
+
+## 9c. Wave 5 playoffs (single-elimination bracket)
+
+No new cron or server step — playoff games reuse the Wave 3 scoring crons (§9a).
+The bracket tables/columns (`playoff_seeds`, `matchups.round`, the
+`playoffs.team_count` setting) are created by migrations 0022–0024 in step 7 /
+the re-deploy below. On **Season control** (`/admin/season`): set **how many
+teams make the playoffs**, then once the final regular-season week is settled
+**Create the playoff bracket** (freezes the standings as seeds and opens Round 1),
+**Advance to the next round** after each round finishes, and if needed **undo the
+last round** or **reset** (before any playoff game is played). Everyone views the
+bracket and the champion at **Playoffs** (`/playoffs`).
 
 ## 10. Verify
 
