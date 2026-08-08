@@ -56,7 +56,7 @@ final class Kernel
         $transactionLedger = new TransactionRepository($pdo);
         $schedule = new ScheduleService(new ScheduleGenerator(), $matchups, $teams, $settings);
         $lineupService = new LineupService($lineupRepo, $rosters, $settings, new WeekLock($settings));
-        $transactionService = new TransactionService($pdo, $rosters, $players, $settings, $transactionLedger, $lineupService, $lineupRepo);
+        $transactionService = new TransactionService($pdo, $rosters, $players, $settings, $transactionLedger, $lineupService, $lineupRepo, $drafts);
 
         $login = new LoginController($auth, $leagues, $view);
         $home = new HomeController($teams, $transactionLedger, $leagues, $view);
@@ -108,6 +108,7 @@ final class Kernel
         $router->post('/admin/season/week', [$season, 'startWeek'], 'commissioner');
         $router->post('/admin/season/scoring', [$season, 'saveScoring'], 'commissioner');
         $router->post('/admin/season/roster', [$season, 'saveRoster'], 'commissioner');
+        $router->post('/admin/season/trades', [$season, 'saveTrades'], 'commissioner');
 
         $router->get('/admin/draft', [$draft, 'setup'], 'commissioner');
         $router->post('/admin/draft/config', [$draft, 'configure'], 'commissioner');

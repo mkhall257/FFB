@@ -26,6 +26,8 @@ final class TransactionAddDropHttpTest extends DatabaseTestCase
         $leagues = new LeagueRepository($this->pdo);
         $this->leagueId = $leagues->currentLeagueId();
         $this->seasonId = $leagues->currentSeasonId();
+        $this->pdo->prepare("INSERT INTO drafts (league_id, season_id, state) VALUES (?,?,'complete')")
+            ->execute([$this->leagueId, $this->seasonId]);
     }
 
     public function testManagerAddsFreeAgentToAnOpenBenchSpot(): void

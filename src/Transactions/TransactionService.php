@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace FFB\Transactions;
 
 use Closure;
+use FFB\DraftRepository;
 use FFB\LeagueSettingsRepository;
 use FFB\Lineup\LineupService;
 use FFB\LineupRepository;
@@ -37,6 +38,7 @@ final class TransactionService
         private readonly TransactionRepository $ledger,
         private readonly LineupService $lineups,
         private readonly LineupRepository $lineupRepo,
+        private readonly DraftRepository $drafts,
         ?callable $now = null,
     ) {
         $this->now = $now !== null ? Closure::fromCallable($now) : static fn (): int => time();
@@ -58,6 +60,7 @@ final class TransactionService
         string $addPlayerId,
         ?string $dropPlayerId,
     ): int {
+        $this->assertTransactionsOpen($leagueId, $seasonId);
         if (!$this->players->exists($addPlayerId)) {
             throw new TransactionException(422, 'That player does not exist.');
         }
@@ -112,6 +115,40 @@ final class TransactionService
     public const TRADE_TTL_HOURS = 48;
 
     /**
+     * Transactions open once the Draft is complete (Rosters materialized) — not
+     * gated on Week 1. Commissioner reversal and manual edits are exempt (they
+     * are the escape hatch and never call this).
+     *
+     * @throws TransactionException when the Draft is not yet complete
+     */
+    private function assertTransactionsOpen(int $leagueId, int $seasonId): void
+    {
+        $draft = $this->drafts->find($leagueId, $seasonId);
+        if ($draft === null || $draft['state'] !== 'complete') {
+            throw new TransactionException(403, 'Transactions open once the draft is complete.');
+        }
+    }
+
+    /**
+     * Trading is open unless the Commissioner has set a trade-deadline week and
+     * the current week is past it. The deadline defaults to none (Add/Drop is
+     * never affected by it).
+     *
+     * @throws TransactionException when trading is closed for the season
+     */
+    private function assertTradingOpen(int $leagueId, int $seasonId): void
+    {
+        $all = $this->settings->all($leagueId, $seasonId);
+        $deadline = $all['schedule.trade_deadline_week'] ?? '';
+        if ($deadline === '' || $deadline === null) {
+            return;
+        }
+        if ($this->currentWeek($leagueId, $seasonId) > (int) $deadline) {
+            throw new TransactionException(403, 'Trades are closed for the season.');
+        }
+    }
+
+    /**
      * A Manager offers a Trade to another Team: some of their Players for some of
      * the target's. Nothing moves — a pending proposal is recorded that only the
      * target may accept or reject (and only the proposer may cancel), expiring
@@ -131,6 +168,8 @@ final class TransactionService
         array $offeredPlayerIds,
         array $requestedPlayerIds,
     ): int {
+        $this->assertTransactionsOpen($leagueId, $seasonId);
+        $this->assertTradingOpen($leagueId, $seasonId);
         if ($proposerTeamId === $targetTeamId) {
             throw new TransactionException(422, 'You cannot trade with yourself.');
         }
@@ -184,6 +223,7 @@ final class TransactionService
      */
     public function acceptTrade(int $leagueId, int $seasonId, int $txnId, int $actingTeamId, ?int $userId): void
     {
+        $this->assertTradingOpen($leagueId, $seasonId);
         $txn = $this->requireProposedTrade($txnId);
         if ((int) $txn['accepted_by_team'] !== $actingTeamId) {
             throw new TransactionException(403, 'Only the team the trade was offered to can accept it.');

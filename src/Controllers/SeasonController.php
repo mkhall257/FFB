@@ -68,6 +68,22 @@ final class SeasonController
         return Response::redirect('/admin/season');
     }
 
+    public function saveTrades(Request $request, Session $session): Response
+    {
+        $raw = trim((string) $request->input('trade_deadline_week', ''));
+        if ($raw !== '' && (!ctype_digit($raw) || (int) $raw < 1 || (int) $raw > 25)) {
+            return $this->render(null, 'Trade deadline must be a week between 1 and 25, or blank for none.', 400);
+        }
+
+        $this->settings->setMany($this->leagues->currentLeagueId(), $this->leagues->currentSeasonId(), [
+            // Blank stores an empty value = no deadline (trading stays open).
+            'schedule.trade_deadline_week' => $raw,
+        ]);
+        $session->set('flash', $raw === '' ? 'Trade deadline cleared.' : "Trades close after week {$raw}.");
+
+        return Response::redirect('/admin/season');
+    }
+
     public function saveScoring(Request $request, Session $session): Response
     {
         return $this->saveGroup($request, $session, 'scoring', 'Scoring settings saved.');
@@ -149,6 +165,7 @@ final class SeasonController
                 'nextWeek' => max(1, $currentWeek + 1),
                 'seasonYear' => (int) ($all['schedule.season_year'] ?? (int) date('Y')),
                 'kickoffPrefill' => $this->prefillKickoff(),
+                'tradeDeadlineWeek' => (string) ($all['schedule.trade_deadline_week'] ?? ''),
                 'scoring' => $scoring,
                 'roster' => $roster,
                 'flash' => $flash,

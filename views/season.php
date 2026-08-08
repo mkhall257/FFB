@@ -129,3 +129,13 @@ $orderedKeys = static function (array $labels, array $values): array {
     </table>
     <button type="submit">Save roster</button>
 </form>
+
+<h2>Trade deadline</h2>
+<p>The last week trades can be made. Leave blank for no deadline (trading stays
+open all season). Add/Drop is never affected.</p>
+<form method="post" action="/admin/season/trades">
+    <label for="trade_deadline_week">Trades close after week</label>
+    <input id="trade_deadline_week" type="number" min="1" max="25" step="1"
+        name="trade_deadline_week" value="<?= e($tradeDeadlineWeek) ?>" placeholder="none">
+    <button type="submit">Save trade deadline</button>
+</form>

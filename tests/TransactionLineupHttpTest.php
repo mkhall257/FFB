@@ -37,6 +37,8 @@ final class TransactionLineupHttpTest extends DatabaseTestCase
             'roster.flex' => '0', 'roster.k' => '0', 'roster.def' => '0', 'roster.bench' => '0',
             'schedule.current_week' => '1',
         ]);
+        $this->pdo->prepare("INSERT INTO drafts (league_id, season_id, state) VALUES (?,?,'complete')")
+            ->execute([$this->leagueId, $this->seasonId]);
     }
 
     public function testDroppingAStarterInAnUnlockedWeekClearsTheSlot(): void

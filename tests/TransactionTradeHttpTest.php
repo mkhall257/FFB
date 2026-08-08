@@ -35,6 +35,8 @@ final class TransactionTradeHttpTest extends DatabaseTestCase
             'roster.qb' => '2', 'roster.rb' => '2', 'roster.wr' => '2', 'roster.te' => '0',
             'roster.flex' => '0', 'roster.k' => '0', 'roster.def' => '0', 'roster.bench' => '5',
         ]);
+        $this->pdo->prepare("INSERT INTO drafts (league_id, season_id, state) VALUES (?,?,'complete')")
+            ->execute([$this->leagueId, $this->seasonId]);
     }
 
     public function testProposeCreatesAPendingTradeVisibleToTheTarget(): void

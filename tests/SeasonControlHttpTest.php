@@ -68,6 +68,19 @@ final class SeasonControlHttpTest extends DatabaseTestCase
         $this->assertSame(403, $response->status);
     }
 
+    public function testSetsAndClearsTheTradeDeadline(): void
+    {
+        $set = $this->dispatch($this->commissioner(), 'POST', '/admin/season/trades', [
+            'trade_deadline_week' => '11',
+        ]);
+        $this->assertSame('/admin/season', $set->headers['Location']);
+        $this->assertSame('11', $this->setting('schedule.trade_deadline_week'));
+
+        // Empty clears it back to no deadline.
+        $this->dispatch($this->commissioner(), 'POST', '/admin/season/trades', ['trade_deadline_week' => '']);
+        $this->assertSame('', $this->setting('schedule.trade_deadline_week'));
+    }
+
     public function testStartWeekSetsCurrentWeekYearAndKickoff(): void
     {
         $response = $this->dispatch($this->commissioner(), 'POST', '/admin/season/week', [

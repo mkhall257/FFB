@@ -34,6 +34,8 @@ final class TransactionFeedHttpTest extends DatabaseTestCase
             'roster.qb' => '1', 'roster.rb' => '0', 'roster.wr' => '0', 'roster.te' => '0',
             'roster.flex' => '0', 'roster.k' => '0', 'roster.def' => '0', 'roster.bench' => '0',
         ]);
+        $this->pdo->prepare("INSERT INTO drafts (league_id, season_id, state) VALUES (?,?,'complete')")
+            ->execute([$this->leagueId, $this->seasonId]);
     }
 
     public function testFeedShowsAnAddDropInPlainEnglish(): void
