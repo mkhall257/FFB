@@ -11,6 +11,58 @@
  * @var ?string $flash
  * @var ?string $error
  */
+
+// Friendly labels, in a sensible display order. Keys not listed here still
+// render (with their raw name) so a newly-added rule is never hidden.
+$scoringLabels = [
+    'pass_yard' => 'Passing yards (per yard)',
+    'pass_td' => 'Passing touchdown',
+    'pass_int' => 'Interception thrown',
+    'rush_yard' => 'Rushing yards (per yard)',
+    'rush_td' => 'Rushing touchdown',
+    'rec_yard' => 'Receiving yards (per yard)',
+    'rec_td' => 'Receiving touchdown',
+    'reception' => 'Reception (PPR)',
+    'fumble_lost' => 'Fumble lost',
+    'fg_made' => 'Field goal made',
+    'xp_made' => 'Extra point made',
+    'def_sack' => 'Defense — sack',
+    'def_int' => 'Defense — interception',
+    'def_fumble_rec' => 'Defense — fumble recovery',
+    'def_td' => 'Defense — touchdown',
+    'def_safety' => 'Defense — safety',
+    'def_pa_0' => 'Defense — 0 points allowed',
+    'def_pa_1_6' => 'Defense — 1 to 6 points allowed',
+    'def_pa_7_13' => 'Defense — 7 to 13 points allowed',
+    'def_pa_14_20' => 'Defense — 14 to 20 points allowed',
+    'def_pa_21_27' => 'Defense — 21 to 27 points allowed',
+    'def_pa_28_34' => 'Defense — 28 to 34 points allowed',
+    'def_pa_35' => 'Defense — 35+ points allowed',
+];
+$rosterLabels = [
+    'qb' => 'Quarterback (QB)',
+    'rb' => 'Running back (RB)',
+    'wr' => 'Wide receiver (WR)',
+    'te' => 'Tight end (TE)',
+    'flex' => 'Flex (RB/WR/TE)',
+    'k' => 'Kicker (K)',
+    'def' => 'Defense (DEF)',
+    'bench' => 'Bench',
+];
+
+/**
+ * Return [key => value] ordered by the label map first, then any leftover keys.
+ *
+ * @param array<string,string> $labels
+ * @param array<string,string> $values
+ * @return list<string>
+ */
+$orderedKeys = static function (array $labels, array $values): array {
+    $ordered = array_values(array_intersect(array_keys($labels), array_keys($values)));
+    $rest = array_values(array_diff(array_keys($values), $ordered));
+
+    return array_merge($ordered, $rest);
+};
 ?>
 <h1>Season control</h1>
 <p><a href="/">Home</a> · <a href="/admin">Commissioner tools</a> · <a href="/scoreboard">Scoreboard</a></p>
@@ -46,13 +98,13 @@
 <p>Points per unit. Changing these re-scores every week from the stored stats.</p>
 <form method="post" action="/admin/season/scoring">
     <table>
-        <thead><tr><th>Rule</th><th>Value</th></tr></thead>
+        <thead><tr><th>Rule</th><th>Points</th></tr></thead>
         <tbody>
-        <?php foreach ($scoring as $key => $value): ?>
+        <?php foreach ($orderedKeys($scoringLabels, $scoring) as $key): ?>
             <tr>
-                <td><label for="scoring_<?= e($key) ?>"><?= e($key) ?></label></td>
+                <td><label for="scoring_<?= e($key) ?>"><?= e($scoringLabels[$key] ?? $key) ?></label></td>
                 <td><input id="scoring_<?= e($key) ?>" type="number" step="any"
-                    name="scoring[<?= e($key) ?>]" value="<?= e($value) ?>"></td>
+                    name="scoring[<?= e($key) ?>]" value="<?= e($scoring[$key]) ?>"></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
@@ -66,11 +118,11 @@
     <table>
         <thead><tr><th>Slot</th><th>Count</th></tr></thead>
         <tbody>
-        <?php foreach ($roster as $key => $value): ?>
+        <?php foreach ($orderedKeys($rosterLabels, $roster) as $key): ?>
             <tr>
-                <td><label for="roster_<?= e($key) ?>"><?= e($key) ?></label></td>
+                <td><label for="roster_<?= e($key) ?>"><?= e($rosterLabels[$key] ?? $key) ?></label></td>
                 <td><input id="roster_<?= e($key) ?>" type="number" min="0" step="1"
-                    name="roster[<?= e($key) ?>]" value="<?= e($value) ?>"></td>
+                    name="roster[<?= e($key) ?>]" value="<?= e($roster[$key]) ?>"></td>
             </tr>
         <?php endforeach; ?>
         </tbody>

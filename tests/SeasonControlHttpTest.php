@@ -56,6 +56,10 @@ final class SeasonControlHttpTest extends DatabaseTestCase
         $response = $this->dispatch($this->commissioner(), 'GET', '/admin/season');
         $this->assertSame(200, $response->status);
         $this->assertStringContainsString('Season control', $response->body);
+        // Scoring rules show friendly labels in the visible <label>, not raw keys.
+        $this->assertStringContainsString('Passing touchdown', $response->body);
+        $this->assertStringContainsString('Defense — 1 to 6 points allowed', $response->body);
+        $this->assertStringNotContainsString('>def_pa_1_6<', $response->body);
     }
 
     public function testManagerIsForbidden(): void
