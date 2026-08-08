@@ -146,6 +146,17 @@ editing needed:
 - `schedule.settle_week` defaults to `current_week - 1`; set it explicitly only
   to re-settle a specific past week.
 
+## 9b. Wave 4 transactions (Add/Drop + Trades)
+
+No new cron or server step — the transaction system is entirely in-app and its
+tables (`transactions`, `transaction_items`) are created by the migrations in
+step 7 / the re-deploy below. Transactions open automatically once the Draft is
+complete. The optional **trade deadline** is set from **Season control**
+(`/admin/season`); leave it blank for no deadline. Managers use **Free Agents**
+(`/players`), **Trades** (`/trades`), and **Activity** (`/transactions`); the
+Commissioner reverses from **Activity** and fixes rosters by hand from **Roster
+edit** (`/admin/roster-edit`).
+
 ## 10. Verify
 
 1. Visit `https://yourdomain.com/login` and log in as the Commissioner.
