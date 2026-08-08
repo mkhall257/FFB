@@ -34,6 +34,7 @@ final class Kernel
         $syncLog = new PlayerSyncLogRepository($pdo);
         $drafts = new DraftRepository($pdo);
         $draftPicks = new DraftPickRepository($pdo);
+        $draftQueues = new DraftQueueRepository($pdo);
         $settings = new LeagueSettingsRepository($pdo);
 
         $login = new LoginController($auth, $leagues, $view);
@@ -43,7 +44,7 @@ final class Kernel
         $draft = new DraftController($pdo, $drafts, $draftPicks, $settings, $teams, $leagues, $view);
 
         $draftService = new DraftService($pdo, $drafts, $draftPicks, $players);
-        $draftRoom = new DraftRoomController($draftService, $drafts, $draftPicks, $teams, $players, $leagues, $view);
+        $draftRoom = new DraftRoomController($draftService, $drafts, $draftPicks, $draftQueues, $teams, $players, $leagues, $view);
 
         $router = new Router();
         $router->get('/login', [$login, 'show']);
@@ -67,6 +68,9 @@ final class Kernel
 
         $router->get('/draft', [$draftRoom, 'index'], 'authenticated');
         $router->post('/draft/pick', [$draftRoom, 'pick'], 'authenticated');
+        $router->post('/draft/queue/add', [$draftRoom, 'addToQueue'], 'authenticated');
+        $router->post('/draft/queue/remove', [$draftRoom, 'removeFromQueue'], 'authenticated');
+        $router->post('/draft/queue/reorder', [$draftRoom, 'reorderQueue'], 'authenticated');
 
         return $router;
     }
