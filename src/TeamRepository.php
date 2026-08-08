@@ -78,6 +78,26 @@ final class TeamRepository
     }
 
     /**
+     * team_id => team name for a Season.
+     *
+     * @return array<int,string>
+     */
+    public function namesForSeason(int $leagueId, int $seasonId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id, name FROM teams WHERE league_id = ? AND season_id = ?'
+        );
+        $stmt->execute([$leagueId, $seasonId]);
+
+        $out = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $out[(int) $row['id']] = (string) $row['name'];
+        }
+
+        return $out;
+    }
+
+    /**
      * Every Team with its Manager (if assigned), ordered by team name.
      *
      * @return list<array<string,mixed>>
