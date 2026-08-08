@@ -8,6 +8,7 @@ use FFB\LeagueRepository;
 use FFB\LeagueSettingsRepository;
 use FFB\LineupRepository;
 use FFB\Lineup\LineupService;
+use FFB\Lineup\WeekLock;
 use FFB\PlayerRepository;
 use FFB\RosterRepository;
 use FFB\TeamRepository;
@@ -25,12 +26,14 @@ final class LineupServiceTest extends DatabaseTestCase
         return (new LeagueRepository($this->pdo))->currentSeasonId();
     }
 
-    private function service(): LineupService
+    private function service(?int $now = null): LineupService
     {
         return new LineupService(
             new LineupRepository($this->pdo),
             new RosterRepository($this->pdo),
             new LeagueSettingsRepository($this->pdo),
+            new WeekLock(new LeagueSettingsRepository($this->pdo)),
+            $now !== null ? static fn (): int => $now : static fn (): int => strtotime('2026-09-01'),
         );
     }
 
@@ -138,5 +141,37 @@ final class LineupServiceTest extends DatabaseTestCase
             ['roster_slot' => 'RB', 'slot_index' => 0, 'player_id' => 'RB1'],
             ['roster_slot' => 'FLEX', 'slot_index' => 0, 'player_id' => 'RB1'],
         ]);
+    }
+
+    public function testSavingAfterKickoffIsRejected(): void
+    {
+        $team = $this->seedRosteredTeam();
+        (new LeagueSettingsRepository($this->pdo))->setMany($this->leagueId(), $this->seasonId(), [
+            'schedule.week_1_kickoff' => '2026-09-10T20:20:00+00:00',
+        ]);
+
+        // "Now" is after kickoff.
+        $service = $this->service((int) strtotime('2026-09-11'));
+        $this->expectException(\FFB\Lineup\LineupException::class);
+        $service->saveLineup($this->leagueId(), $this->seasonId(), 1, $team, [
+            ['roster_slot' => 'QB', 'slot_index' => 0, 'player_id' => 'QB1'],
+        ]);
+    }
+
+    public function testSavingBeforeKickoffIsAllowed(): void
+    {
+        $team = $this->seedRosteredTeam();
+        (new LeagueSettingsRepository($this->pdo))->setMany($this->leagueId(), $this->seasonId(), [
+            'schedule.week_1_kickoff' => '2026-09-10T20:20:00+00:00',
+        ]);
+
+        // "Now" is before kickoff — save succeeds.
+        $service = $this->service((int) strtotime('2026-09-09'));
+        $service->saveLineup($this->leagueId(), $this->seasonId(), 1, $team, [
+            ['roster_slot' => 'QB', 'slot_index' => 0, 'player_id' => 'QB1'],
+        ]);
+
+        $rows = (new LineupRepository($this->pdo))->forTeamWeek($this->seasonId(), 1, $team);
+        $this->assertSame(['QB1'], array_column($rows, 'player_id'));
     }
 }

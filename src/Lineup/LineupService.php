@@ -4,24 +4,34 @@ declare(strict_types=1);
 
 namespace FFB\Lineup;
 
+use Closure;
 use FFB\LeagueSettingsRepository;
 use FFB\LineupRepository;
 use FFB\RosterRepository;
 
 /**
  * Owns the weekly Lineup lifecycle: the slot plan from roster.* settings,
- * carry-forward defaulting, and Week-1 auto-fill of best-legal Players. Saving a
- * Manager's chosen Lineup with legality and lock checks is added in later tasks.
+ * carry-forward defaulting, Week-1 auto-fill of best-legal Players, and saving a
+ * Manager's chosen Lineup with legality and kickoff-lock checks.
  */
 final class LineupService
 {
     private const FLEX_ELIGIBLE = ['RB', 'WR', 'TE'];
 
+    /** @var Closure(): int */
+    private Closure $now;
+
+    /**
+     * @param (callable(): int)|null $now current unix time provider (for tests)
+     */
     public function __construct(
         private readonly LineupRepository $lineups,
         private readonly RosterRepository $rosters,
         private readonly LeagueSettingsRepository $settings,
+        private readonly WeekLock $lock,
+        ?callable $now = null,
     ) {
+        $this->now = $now !== null ? Closure::fromCallable($now) : static fn (): int => time();
     }
 
     /**
@@ -129,6 +139,10 @@ final class LineupService
      */
     public function saveLineup(int $leagueId, int $seasonId, int $week, int $teamId, array $assignments): void
     {
+        if ($this->lock->isLocked($leagueId, $seasonId, $week, ($this->now)())) {
+            throw new LineupException(423, 'Lineups are locked for this week.');
+        }
+
         $rosterPos = [];
         foreach ($this->rosters->byTeam($seasonId)[$teamId] ?? [] as $p) {
             $rosterPos[$p['player_id']] = $p['position'];
