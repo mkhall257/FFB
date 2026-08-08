@@ -115,6 +115,34 @@ Then Control Panel → **Cron Jobs** → add a **daily** job:
 (Use the PHP CLI path and absolute project path for your account — daily is
 plenty during the preseason.)
 
+## 9a. Wave 3 scoring cron jobs (in-season)
+
+Once the Draft has run and the Schedule exists, two cron jobs keep scores live
+and settle them to official:
+
+**Live scoring** — every ~2 minutes during game windows (Thu evening, Sun, Mon
+evening). Fetches Sleeper stats and updates the current week's Matchup scores:
+
+```
+/usr/bin/php /home/USER/FFB/cron/live_scores.php
+```
+
+**Official settlement** — once daily (e.g. Tue 06:00). Ingests nflverse official
+stats for the completed week, rescores it as final, and locks it:
+
+```
+/usr/bin/php /home/USER/FFB/cron/settle_official.php
+```
+
+Both read Commissioner-maintained `league_settings` (a settings UI comes in a
+later wave — set these directly for now):
+
+- `schedule.current_week` — the NFL week being scored live.
+- `schedule.settle_week` — the week to settle (defaults to `current_week - 1`).
+- `schedule.season_year` — the NFL season year (defaults to the current year).
+- `schedule.week_<n>_kickoff` — ISO 8601 timestamp of week *n*'s first kickoff;
+  Lineups for that week lock at this time.
+
 ## 10. Verify
 
 1. Visit `https://yourdomain.com/login` and log in as the Commissioner.
