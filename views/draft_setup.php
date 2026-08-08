@@ -72,6 +72,11 @@ $rounds = $starters + $slot('bench');
 
 <?php if ($locked): ?>
     <p>The order is locked (<?= e($state) ?>).</p>
+    <?php if ($state === 'ready'): ?>
+        <form method="post" action="/admin/draft/start">
+            <button type="submit">Start draft (go live)</button>
+        </form>
+    <?php endif; ?>
 <?php else: ?>
     <form method="post" action="/admin/draft/order/randomize">
         <button type="submit"<?= count($teams) < 2 ? ' disabled' : '' ?>>Randomize order</button>

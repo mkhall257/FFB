@@ -31,13 +31,14 @@ final class Kernel
         $players = new PlayerRepository($pdo);
         $syncLog = new PlayerSyncLogRepository($pdo);
         $drafts = new DraftRepository($pdo);
+        $draftPicks = new DraftPickRepository($pdo);
         $settings = new LeagueSettingsRepository($pdo);
 
         $login = new LoginController($auth, $leagues, $view);
         $home = new HomeController($view);
         $admin = new AdminController($pdo, $teams, $users, $leagues, $view);
         $playerAdmin = new PlayerAdminController($players, $syncLog, $view);
-        $draft = new DraftController($pdo, $drafts, $settings, $teams, $leagues, $view);
+        $draft = new DraftController($pdo, $drafts, $draftPicks, $settings, $teams, $leagues, $view);
 
         $router = new Router();
         $router->get('/login', [$login, 'show']);
@@ -57,6 +58,7 @@ final class Kernel
         $router->post('/admin/draft/order/randomize', [$draft, 'randomizeOrder'], 'commissioner');
         $router->post('/admin/draft/order', [$draft, 'reorder'], 'commissioner');
         $router->post('/admin/draft/finalize', [$draft, 'finalize'], 'commissioner');
+        $router->post('/admin/draft/start', [$draft, 'start'], 'commissioner');
 
         return $router;
     }

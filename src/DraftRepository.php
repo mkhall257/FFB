@@ -70,6 +70,20 @@ final class DraftRepository
     }
 
     /**
+     * Put the Draft Live: first Team on the clock, deadline set from the pick
+     * timer.
+     */
+    public function start(int $draftId, int $pickSeconds): void
+    {
+        $deadline = date('Y-m-d H:i:s', time() + $pickSeconds);
+        $stmt = $this->pdo->prepare(
+            "UPDATE drafts SET state = 'live', current_pick_no = 1, current_deadline = ?,"
+            . ' started_at = NOW() WHERE id = ?'
+        );
+        $stmt->execute([$deadline, $draftId]);
+    }
+
+    /**
      * Replace the draft order with the given Team ids, positioned 1..N in the
      * order supplied.
      *

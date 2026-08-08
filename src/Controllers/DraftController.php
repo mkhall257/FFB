@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace FFB\Controllers;
 
+use FFB\DraftPickRepository;
 use FFB\DraftRepository;
 use FFB\Http\Request;
 use FFB\Http\Response;
@@ -41,6 +42,7 @@ final class DraftController
     public function __construct(
         private readonly PDO $pdo,
         private readonly DraftRepository $drafts,
+        private readonly DraftPickRepository $picks,
         private readonly LeagueSettingsRepository $settings,
         private readonly TeamRepository $teams,
         private readonly LeagueRepository $leagues,
@@ -183,6 +185,52 @@ final class DraftController
         $session->set('flash', 'Draft finalized. Managers can now see the order and build their queues.');
 
         return Response::redirect('/admin/draft');
+    }
+
+    public function start(Request $request, Session $session): Response
+    {
+        $leagueId = $this->leagues->currentLeagueId();
+        $seasonId = $this->leagues->currentSeasonId();
+        $draft = $this->drafts->currentOrCreate($leagueId, $seasonId);
+
+        if ($draft['state'] !== 'ready') {
+            return $this->renderSetup(null, 'Finalize the draft order before starting it.', 409);
+        }
+
+        $order = $this->drafts->orderTeamIds((int) $draft['id']);
+        $settings = $this->settings->all($leagueId, $seasonId);
+        $rounds = $this->rounds($settings);
+
+        if ($rounds < 1) {
+            return $this->renderSetup(null, 'Set a roster shape before starting the draft.', 400);
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            $this->picks->generateBoard((int) $draft['id'], $order, $rounds);
+            $this->drafts->start((int) $draft['id'], (int) $draft['pick_seconds']);
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+
+        $session->set('flash', 'The draft is live!');
+
+        return Response::redirect('/admin/draft');
+    }
+
+    /**
+     * Total Draft rounds = starter slots + bench, from the roster shape.
+     *
+     * @param array<string,string> $settings
+     */
+    private function rounds(array $settings): int
+    {
+        $slot = static fn (string $key): int => (int) ($settings['roster.' . $key] ?? 0);
+
+        return $slot('qb') + $slot('rb') + $slot('wr') + $slot('te')
+            + $slot('flex') + $slot('k') + $slot('def') + $slot('bench');
     }
 
     /**
