@@ -10,6 +10,7 @@ use FFB\LeagueRepository;
 use FFB\LeagueSettingsRepository;
 use FFB\PlayerRepository;
 use FFB\RosterRepository;
+use FFB\Schedule\ScheduleService;
 use PDO;
 use PDOException;
 
@@ -33,6 +34,7 @@ final class DraftService
         private readonly RosterRepository $rosters,
         private readonly LeagueSettingsRepository $settings,
         private readonly LeagueRepository $leagues,
+        private readonly ScheduleService $schedule,
     ) {
     }
 
@@ -179,6 +181,11 @@ final class DraftService
             // The completed board becomes each Team's Season Roster (Wave 3 input).
             $this->rosters->materializeFromDraft(
                 $draftId,
+                $this->leagues->currentLeagueId(),
+                $this->leagues->currentSeasonId(),
+            );
+            // The final Team set now exists: generate the regular-season Schedule.
+            $this->schedule->generateForSeason(
                 $this->leagues->currentLeagueId(),
                 $this->leagues->currentSeasonId(),
             );

@@ -12,6 +12,7 @@ use FFB\Http\Request;
 use FFB\Http\Response;
 use FFB\Http\Session;
 use FFB\LeagueRepository;
+use FFB\MatchupRepository;
 use FFB\LeagueSettingsRepository;
 use FFB\PlayerRepository;
 use FFB\RosterRepository;
@@ -53,6 +54,7 @@ final class DraftController
         private readonly PlayerRepository $players,
         private readonly RosterRepository $rosters,
         private readonly LeagueRepository $leagues,
+        private readonly MatchupRepository $matchups,
         private readonly View $view,
     ) {
     }
@@ -368,8 +370,10 @@ final class DraftController
         try {
             $this->picks->clearPick((int) $last['id']);
             $this->drafts->revertTo((int) $draft['id'], (int) $last['overall_pick'], (int) $draft['pick_seconds']);
-            // Reopening a completed Draft invalidates the materialized rosters.
+            // Reopening a completed Draft invalidates the materialized rosters
+            // and the Schedule generated from them.
             $this->rosters->clearForSeason($this->leagues->currentSeasonId());
+            $this->matchups->clearForSeason($this->leagues->currentSeasonId());
             $this->pdo->commit();
         } catch (\Throwable $e) {
             $this->pdo->rollBack();
@@ -392,6 +396,7 @@ final class DraftController
             $this->picks->clearBoard((int) $draft['id']);
             $this->drafts->resetToSetup((int) $draft['id']);
             $this->rosters->clearForSeason($this->leagues->currentSeasonId());
+            $this->matchups->clearForSeason($this->leagues->currentSeasonId());
             $this->pdo->commit();
         } catch (\Throwable $e) {
             $this->pdo->rollBack();

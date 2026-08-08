@@ -13,6 +13,8 @@ use FFB\Controllers\PlayerAdminController;
 use FFB\Draft\AutoPickStrategy;
 use FFB\Draft\DraftService;
 use FFB\Http\Router;
+use FFB\Schedule\ScheduleGenerator;
+use FFB\Schedule\ScheduleService;
 use PDO;
 
 /**
@@ -38,15 +40,17 @@ final class Kernel
         $draftQueues = new DraftQueueRepository($pdo);
         $rosters = new RosterRepository($pdo);
         $settings = new LeagueSettingsRepository($pdo);
+        $matchups = new MatchupRepository($pdo);
+        $schedule = new ScheduleService(new ScheduleGenerator(), $matchups, $teams, $settings);
 
         $login = new LoginController($auth, $leagues, $view);
         $home = new HomeController($view);
         $admin = new AdminController($pdo, $teams, $users, $leagues, $view);
         $playerAdmin = new PlayerAdminController($players, $syncLog, $view);
         $autoPick = new AutoPickStrategy($draftQueues, $draftPicks, $players);
-        $draftService = new DraftService($pdo, $drafts, $draftPicks, $players, $autoPick, $rosters, $settings, $leagues);
+        $draftService = new DraftService($pdo, $drafts, $draftPicks, $players, $autoPick, $rosters, $settings, $leagues, $schedule);
 
-        $draft = new DraftController($pdo, $drafts, $draftPicks, $draftService, $settings, $teams, $players, $rosters, $leagues, $view);
+        $draft = new DraftController($pdo, $drafts, $draftPicks, $draftService, $settings, $teams, $players, $rosters, $leagues, $matchups, $view);
         $draftRoom = new DraftRoomController($draftService, $drafts, $draftPicks, $draftQueues, $teams, $players, $leagues, $view);
 
         $router = new Router();
