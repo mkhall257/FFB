@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace FFB;
 
 use FFB\Controllers\AdminController;
+use FFB\Controllers\DraftController;
 use FFB\Controllers\HomeController;
 use FFB\Controllers\LoginController;
 use FFB\Controllers\PlayerAdminController;
@@ -29,11 +30,14 @@ final class Kernel
 
         $players = new PlayerRepository($pdo);
         $syncLog = new PlayerSyncLogRepository($pdo);
+        $drafts = new DraftRepository($pdo);
+        $settings = new LeagueSettingsRepository($pdo);
 
         $login = new LoginController($auth, $leagues, $view);
         $home = new HomeController($view);
         $admin = new AdminController($pdo, $teams, $users, $leagues, $view);
         $playerAdmin = new PlayerAdminController($players, $syncLog, $view);
+        $draft = new DraftController($pdo, $drafts, $settings, $leagues, $view);
 
         $router = new Router();
         $router->get('/login', [$login, 'show']);
@@ -47,6 +51,9 @@ final class Kernel
         $router->post('/admin/managers/reset', [$admin, 'resetPassword'], 'commissioner');
         $router->post('/admin/managers/status', [$admin, 'setManagerStatus'], 'commissioner');
         $router->get('/admin/unmatched-players', [$playerAdmin, 'unmatched'], 'commissioner');
+
+        $router->get('/admin/draft', [$draft, 'setup'], 'commissioner');
+        $router->post('/admin/draft/config', [$draft, 'configure'], 'commissioner');
 
         return $router;
     }
