@@ -12,6 +12,7 @@ use FFB\Controllers\LineupController;
 use FFB\Controllers\LoginController;
 use FFB\Controllers\PlayerAdminController;
 use FFB\Controllers\ScoreboardController;
+use FFB\Controllers\SeasonController;
 use FFB\Controllers\StandingsController;
 use FFB\Draft\AutoPickStrategy;
 use FFB\Draft\DraftService;
@@ -62,6 +63,7 @@ final class Kernel
         $standings = new StandingsController(new StandingsService($pdo), $teams, $leagues, $view);
         $scoreboard = new ScoreboardController($matchups, $teams, $settings, $leagues, $view);
         $lineup = new LineupController($lineupService, $lineupRepo, $rosters, $teams, $settings, $leagues, $view);
+        $season = new SeasonController($settings, $leagues, $view);
 
         $router = new Router();
         $router->get('/login', [$login, 'show']);
@@ -79,6 +81,11 @@ final class Kernel
         $router->post('/admin/managers/reset', [$admin, 'resetPassword'], 'commissioner');
         $router->post('/admin/managers/status', [$admin, 'setManagerStatus'], 'commissioner');
         $router->get('/admin/unmatched-players', [$playerAdmin, 'unmatched'], 'commissioner');
+
+        $router->get('/admin/season', [$season, 'index'], 'commissioner');
+        $router->post('/admin/season/week', [$season, 'startWeek'], 'commissioner');
+        $router->post('/admin/season/scoring', [$season, 'saveScoring'], 'commissioner');
+        $router->post('/admin/season/roster', [$season, 'saveRoster'], 'commissioner');
 
         $router->get('/admin/draft', [$draft, 'setup'], 'commissioner');
         $router->post('/admin/draft/config', [$draft, 'configure'], 'commissioner');
