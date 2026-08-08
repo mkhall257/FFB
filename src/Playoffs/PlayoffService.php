@@ -140,6 +140,111 @@ final class PlayoffService
     }
 
     /**
+     * A read model of the whole bracket for rendering: the frozen seeds, each
+     * opened round (with its games, scores, and settled winners), Round-1 byes,
+     * and the Champion once the final is settled. Returns ['exists' => false] when
+     * no bracket has been created.
+     *
+     * @return array<string,mixed>
+     */
+    public function bracket(int $leagueId, int $seasonId): array
+    {
+        $seedsMap = $this->playoffs->seeds($seasonId);
+        if ($seedsMap === []) {
+            return ['exists' => false];
+        }
+
+        $teamSeed = array_flip($seedsMap);
+        $names = $this->teams->namesForSeason($leagueId, $seasonId);
+        $field = count($seedsMap);
+        $totalRounds = Bracket::roundCount($field);
+        $current = $this->currentRound($seasonId);
+        $regularWeeks = (int) ($this->settings->all($leagueId, $seasonId)['schedule.regular_season_weeks'] ?? self::DEFAULT_REGULAR_WEEKS);
+
+        $seeds = [];
+        foreach ($seedsMap as $seed => $teamId) {
+            $seeds[$seed] = ['seed' => $seed, 'team_id' => $teamId, 'name' => $names[$teamId] ?? ('Team ' . $teamId)];
+        }
+
+        $rounds = [];
+        for ($r = 1; $r <= $current; $r++) {
+            $games = [];
+            foreach ($this->matchups->forRound($seasonId, $r) as $m) {
+                $status = (string) $m['status'];
+                $games[] = [
+                    'home' => $this->side((int) $m['home_team_id'], $m['home_score'], $teamSeed, $names),
+                    'away' => $this->side((int) $m['away_team_id'], $m['away_score'], $teamSeed, $names),
+                    'status' => $status,
+                    'winner_team_id' => $status === 'final'
+                        ? $this->winnerOf($leagueId, $seasonId, $m, $teamSeed)
+                        : null,
+                ];
+            }
+            $byes = [];
+            if ($r === 1) {
+                foreach (Bracket::firstRoundByes($field) as $seedNum) {
+                    $byes[] = $seeds[$seedNum];
+                }
+            }
+            $rounds[] = [
+                'round' => $r,
+                'week' => $regularWeeks + $r,
+                'label' => $this->roundLabel($r, $totalRounds),
+                'games' => $games,
+                'byes' => $byes,
+            ];
+        }
+
+        $champion = null;
+        $finalGames = $this->matchups->forRound($seasonId, $totalRounds);
+        if ($current === $totalRounds && count($finalGames) === 1 && (string) $finalGames[0]['status'] === 'final') {
+            $championId = $this->winnerOf($leagueId, $seasonId, $finalGames[0], $teamSeed);
+            $champion = [
+                'team_id' => $championId,
+                'name' => $names[$championId] ?? ('Team ' . $championId),
+                'seed' => $teamSeed[$championId] ?? null,
+            ];
+        }
+
+        return [
+            'exists' => true,
+            'fieldSize' => $field,
+            'totalRounds' => $totalRounds,
+            'currentRound' => $current,
+            'seeds' => $seeds,
+            'rounds' => $rounds,
+            'champion' => $champion,
+        ];
+    }
+
+    /**
+     * One side of a bracket game for rendering.
+     *
+     * @param array<int,int> $teamSeed team_id => seed
+     * @param array<int,string> $names
+     * @return array{team_id:int,name:string,seed:?int,score:?float}
+     */
+    private function side(int $teamId, mixed $score, array $teamSeed, array $names): array
+    {
+        return [
+            'team_id' => $teamId,
+            'name' => $names[$teamId] ?? ('Team ' . $teamId),
+            'seed' => $teamSeed[$teamId] ?? null,
+            'score' => $score === null ? null : (float) $score,
+        ];
+    }
+
+    private function roundLabel(int $round, int $totalRounds): string
+    {
+        return match (true) {
+            $round === $totalRounds => 'Final',
+            $round === $totalRounds - 1 => 'Semifinals',
+            $round === $totalRounds - 2 => 'Quarterfinals',
+            default => 'Round ' . $round,
+        };
+    }
+
+    /**
      * The ordered list of Teams advancing OUT of a round, in bracket-slot order so
      * that pairing them consecutively yields the next round. Round 1 interleaves
      * bye seeds (who advance automatically) with the winners of the first-round

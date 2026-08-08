@@ -86,7 +86,7 @@ final class Kernel
         $playoffService = new PlayoffService(
             $pdo, $playoffRepo, new StandingsService($pdo), $settings, $teams, $matchups, $matchupScoring,
         );
-        $playoffsPage = new PlayoffsController($playoffService, $leagues);
+        $playoffsPage = new PlayoffsController($playoffService, $leagues, $view);
 
         $router = new Router();
         $router->get('/login', [$login, 'show']);
@@ -97,6 +97,7 @@ final class Kernel
         $router->get('/scoreboard', [$scoreboard, 'index'], 'authenticated');
         $router->get('/lineup', [$lineup, 'index'], 'authenticated');
         $router->post('/lineup', [$lineup, 'save'], 'authenticated');
+        $router->get('/playoffs', [$playoffsPage, 'index'], 'authenticated');
         $router->get('/players', [$playersPage, 'index'], 'authenticated');
         $router->post('/players/add', [$playersPage, 'add'], 'authenticated');
         $router->get('/transactions', [$transactionsPage, 'index'], 'authenticated');

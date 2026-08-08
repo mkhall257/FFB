@@ -11,20 +11,33 @@ use FFB\LeagueClock;
 use FFB\LeagueRepository;
 use FFB\Playoffs\PlayoffException;
 use FFB\Playoffs\PlayoffService;
+use FFB\View;
 
 /**
  * The Playoffs: a read-only bracket view for everyone, plus the Commissioner
- * actions that drive the bracket (create, advance, correct, reset). Manager-
- * facing rendering lands in a later slice; for now the Commissioner actions
- * redirect back to Season Control and refuse illegal requests with a clear
- * status + message.
+ * actions that drive the bracket (create, advance, correct, reset). The
+ * Commissioner actions redirect back to Season Control and refuse illegal
+ * requests with a clear status + message.
  */
 final class PlayoffsController
 {
     public function __construct(
         private readonly PlayoffService $playoffs,
         private readonly LeagueRepository $leagues,
+        private readonly View $view,
     ) {
+    }
+
+    public function index(Request $request, Session $session): Response
+    {
+        $bracket = $this->playoffs->bracket(
+            $this->leagues->currentLeagueId(),
+            $this->leagues->currentSeasonId(),
+        );
+
+        return Response::html(
+            $this->view->page('playoffs', 'Playoffs', ['bracket' => $bracket]),
+        );
     }
 
     public function create(Request $request, Session $session): Response
