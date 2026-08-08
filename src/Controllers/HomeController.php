@@ -10,8 +10,7 @@ use FFB\Http\Session;
 use FFB\View;
 
 /**
- * The authenticated landing page and a Commissioner-only placeholder that the
- * Team/Manager admin screens (next slice) will replace.
+ * The authenticated landing page shown after login.
  */
 final class HomeController
 {
@@ -25,10 +24,5 @@ final class HomeController
             'displayName' => (string) $session->get('display_name', ''),
             'role' => (string) $session->get('role', ''),
         ]));
-    }
-
-    public function admin(Request $request, Session $session): Response
-    {
-        return Response::html($this->view->page('admin', 'Commissioner tools'));
     }
 }

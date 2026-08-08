@@ -62,4 +62,40 @@ final class UserRepository
 
         return $row === false ? null : $row;
     }
+
+    /**
+     * Find a user by id, or null if none.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findById(int $userId): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE id = ?');
+        $stmt->execute([$userId]);
+        $row = $stmt->fetch();
+
+        return $row === false ? null : $row;
+    }
+
+    /**
+     * Replace a user's password (hashed). Scoped to a League as a safety check.
+     */
+    public function resetPassword(int $leagueId, int $userId, string $newPassword): void
+    {
+        $stmt = $this->pdo->prepare(
+            'UPDATE users SET password_hash = ? WHERE id = ? AND league_id = ?'
+        );
+        $stmt->execute([password_hash($newPassword, PASSWORD_DEFAULT), $userId, $leagueId]);
+    }
+
+    /**
+     * Activate or deactivate a user. Scoped to a League as a safety check.
+     */
+    public function setActive(int $leagueId, int $userId, bool $active): void
+    {
+        $stmt = $this->pdo->prepare(
+            'UPDATE users SET is_active = ? WHERE id = ? AND league_id = ?'
+        );
+        $stmt->execute([$active ? 1 : 0, $userId, $leagueId]);
+    }
 }
