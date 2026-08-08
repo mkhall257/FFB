@@ -15,6 +15,7 @@ use FFB\Controllers\PlayersController;
 use FFB\Controllers\ScoreboardController;
 use FFB\Controllers\SeasonController;
 use FFB\Controllers\StandingsController;
+use FFB\Controllers\TransactionsController;
 use FFB\Draft\AutoPickStrategy;
 use FFB\Draft\DraftService;
 use FFB\Http\Router;
@@ -69,6 +70,7 @@ final class Kernel
         $lineup = new LineupController($lineupService, $lineupRepo, $rosters, $teams, $settings, $leagues, $view);
         $season = new SeasonController($settings, $leagues, $view);
         $playersPage = new PlayersController($transactionService, $players, $rosters, $teams, $leagues, $view);
+        $transactionsPage = new TransactionsController($transactionLedger, $leagues, $view);
 
         $router = new Router();
         $router->get('/login', [$login, 'show']);
@@ -81,6 +83,7 @@ final class Kernel
         $router->post('/lineup', [$lineup, 'save'], 'authenticated');
         $router->get('/players', [$playersPage, 'index'], 'authenticated');
         $router->post('/players/add', [$playersPage, 'add'], 'authenticated');
+        $router->get('/transactions', [$transactionsPage, 'index'], 'authenticated');
 
         $router->get('/admin', [$admin, 'index'], 'commissioner');
         $router->post('/admin/teams', [$admin, 'createTeam'], 'commissioner');

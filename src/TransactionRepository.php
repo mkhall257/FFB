@@ -94,6 +94,60 @@ final class TransactionRepository
         return $rows;
     }
 
+    /**
+     * The league-wide activity feed for a Season: Transactions that actually
+     * changed a Roster (every Add/Drop and Commissioner edit, and only accepted
+     * Trades — pending/rejected/cancelled/expired proposals stay off the public
+     * feed), newest first, each with its enriched line items (Player and Team
+     * names) so the view can render plain-English sentences.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function feed(int $seasonId, int $limit = 100): array
+    {
+        $limit = max(1, $limit);
+        $stmt = $this->pdo->prepare(
+            'SELECT * FROM transactions'
+            . ' WHERE season_id = ?'
+            . "   AND (type <> 'trade' OR proposal_outcome = 'accepted')"
+            . ' ORDER BY created_at DESC, id DESC'
+            . ' LIMIT ' . $limit
+        );
+        $stmt->execute([$seasonId]);
+        /** @var list<array<string,mixed>> $headers */
+        $headers = $stmt->fetchAll();
+        if ($headers === []) {
+            return [];
+        }
+
+        $ids = array_map(static fn ($h): int => (int) $h['id'], $headers);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $itemStmt = $this->pdo->prepare(
+            'SELECT ti.transaction_id, ti.player_id, ti.from_team_id, ti.to_team_id,'
+            . ' p.full_name AS player_name,'
+            . ' tf.name AS from_team_name, tt.name AS to_team_name'
+            . ' FROM transaction_items ti'
+            . ' JOIN players p ON p.sleeper_id = ti.player_id'
+            . ' LEFT JOIN teams tf ON tf.id = ti.from_team_id'
+            . ' LEFT JOIN teams tt ON tt.id = ti.to_team_id'
+            . " WHERE ti.transaction_id IN ({$placeholders})"
+            . ' ORDER BY ti.id'
+        );
+        $itemStmt->execute($ids);
+
+        $itemsByTxn = [];
+        foreach ($itemStmt->fetchAll() as $row) {
+            $itemsByTxn[(int) $row['transaction_id']][] = $row;
+        }
+
+        foreach ($headers as &$h) {
+            $h['items'] = $itemsByTxn[(int) $h['id']] ?? [];
+        }
+        unset($h);
+
+        return $headers;
+    }
+
     public function setStatus(int $id, string $status, ?int $reversedByUser = null): void
     {
         $this->pdo->prepare(
