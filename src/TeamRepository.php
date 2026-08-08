@@ -47,6 +47,21 @@ final class TeamRepository
     }
 
     /**
+     * The Team ids for a Season, ordered by id.
+     *
+     * @return list<int>
+     */
+    public function idsForSeason(int $leagueId, int $seasonId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id FROM teams WHERE league_id = ? AND season_id = ? ORDER BY id'
+        );
+        $stmt->execute([$leagueId, $seasonId]);
+
+        return array_map(intval(...), $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    /**
      * Every Team with its Manager (if assigned), ordered by team name.
      *
      * @return list<array<string,mixed>>

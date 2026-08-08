@@ -62,4 +62,65 @@ final class DraftRepository
         );
         $stmt->execute([$pickSeconds, $autopickOnExpiry ? 1 : 0, $scheduledAt, $draftId]);
     }
+
+    public function setState(int $draftId, string $state): void
+    {
+        $stmt = $this->pdo->prepare('UPDATE drafts SET state = ? WHERE id = ?');
+        $stmt->execute([$state, $draftId]);
+    }
+
+    /**
+     * Replace the draft order with the given Team ids, positioned 1..N in the
+     * order supplied.
+     *
+     * @param list<int> $teamIds
+     */
+    public function setOrder(int $draftId, array $teamIds): void
+    {
+        $this->pdo->prepare('DELETE FROM draft_order WHERE draft_id = ?')->execute([$draftId]);
+
+        $insert = $this->pdo->prepare(
+            'INSERT INTO draft_order (draft_id, position, team_id) VALUES (?, ?, ?)'
+        );
+        $position = 1;
+        foreach ($teamIds as $teamId) {
+            $insert->execute([$draftId, $position, $teamId]);
+            $position++;
+        }
+    }
+
+    /**
+     * The ordered Team ids (position 1..N).
+     *
+     * @return list<int>
+     */
+    public function orderTeamIds(int $draftId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT team_id FROM draft_order WHERE draft_id = ? ORDER BY position'
+        );
+        $stmt->execute([$draftId]);
+
+        return array_map(intval(...), $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    /**
+     * The draft order with Team names, for display.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function order(int $draftId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT o.position, o.team_id, o.auto_draft, t.name AS team_name'
+            . ' FROM draft_order o JOIN teams t ON t.id = o.team_id'
+            . ' WHERE o.draft_id = ? ORDER BY o.position'
+        );
+        $stmt->execute([$draftId]);
+
+        /** @var list<array<string,mixed>> $rows */
+        $rows = $stmt->fetchAll();
+
+        return $rows;
+    }
 }

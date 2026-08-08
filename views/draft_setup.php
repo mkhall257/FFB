@@ -5,6 +5,8 @@
  *
  * @var array<string,mixed>|null $draft     the drafts row, or null before first save
  * @var array<string,string>     $settings  league_settings key => value
+ * @var list<array<string,mixed>> $order    draft order rows (position, team_id, team_name)
+ * @var list<array<string,mixed>> $teams    all teams (team_id, team_name, ...)
  * @var string|null $flash
  * @var string|null $error
  */
@@ -55,3 +57,43 @@ $rounds = $starters + $slot('bench');
 
     <button type="submit">Save draft settings</button>
 </form>
+
+<h2>Draft order</h2>
+<?php $locked = $state !== 'setup'; ?>
+<?php if ($order === []): ?>
+    <p>No order set yet.</p>
+<?php else: ?>
+    <ol>
+        <?php foreach ($order as $row): ?>
+            <li><?= e((string) $row['team_name']) ?></li>
+        <?php endforeach; ?>
+    </ol>
+<?php endif; ?>
+
+<?php if ($locked): ?>
+    <p>The order is locked (<?= e($state) ?>).</p>
+<?php else: ?>
+    <form method="post" action="/admin/draft/order/randomize">
+        <button type="submit"<?= count($teams) < 2 ? ' disabled' : '' ?>>Randomize order</button>
+    </form>
+
+    <?php if ($teams !== []): ?>
+        <form method="post" action="/admin/draft/order">
+            <p>Manual order (top to bottom):</p>
+            <?php foreach ($teams as $i => $t): ?>
+                <label><?= (int) $i + 1 ?>.
+                    <select name="team_ids[]">
+                        <?php foreach ($teams as $opt): ?>
+                            <option value="<?= (int) $opt['team_id'] ?>"><?= e((string) $opt['team_name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+            <?php endforeach; ?>
+            <button type="submit">Save manual order</button>
+        </form>
+    <?php endif; ?>
+
+    <form method="post" action="/admin/draft/finalize">
+        <button type="submit"<?= $order === [] ? ' disabled' : '' ?>>Finalize draft (lock order)</button>
+    </form>
+<?php endif; ?>

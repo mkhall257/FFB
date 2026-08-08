@@ -119,7 +119,7 @@ final class MigratorTest extends TestCase
         $this->assertSame('2', $settings['roster.rb'] ?? null);
         $this->assertSame('2', $settings['roster.wr'] ?? null);
         $this->assertSame('1', $settings['roster.flex'] ?? null);
-        $this->assertSame('6', $settings['roster.bench'] ?? null);
+        $this->assertSame('5', $settings['roster.bench'] ?? null);
     }
 
     public function testMigrationsAreIdempotent(): void
