@@ -254,6 +254,72 @@ final class TransactionService
     }
 
     /**
+     * The Commissioner reverses an applied Transaction, restoring the exact prior
+     * Roster state. Conflict-checked and non-cascading: the reversal is refused
+     * (nothing changes) if any Player it touched has since moved, so undoing one
+     * Transaction never yanks a Player off an innocent Team (ADR-0010).
+     *
+     * @throws TransactionException when the Transaction is not reversible or a
+     *   later change blocks a clean reversal
+     */
+    public function reverseTransaction(int $leagueId, int $seasonId, int $txnId, ?int $commishUserId): void
+    {
+        $txn = $this->ledger->find($txnId);
+        if ($txn === null) {
+            throw new TransactionException(404, 'Transaction not found.');
+        }
+        if ($txn['status'] !== 'applied') {
+            throw new TransactionException(409, 'Only an applied transaction can be reversed.');
+        }
+
+        $items = $this->ledger->items($txnId);
+
+        // Conflict check: each item's effect must still stand — the Player must
+        // still sit where this Transaction put them (a Team, or the pool).
+        foreach ($items as $it) {
+            $expected = $it['to_team_id'] !== null ? (int) $it['to_team_id'] : null;
+            if ($this->rosters->teamForPlayer($seasonId, (string) $it['player_id']) !== $expected) {
+                throw new TransactionException(
+                    409,
+                    'Cannot auto-reverse — a player in this transaction has changed teams since. Fix the rosters manually.',
+                );
+            }
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            foreach ($items as $it) {
+                $playerId = (string) $it['player_id'];
+                $fromTeam = $it['from_team_id'] !== null ? (int) $it['from_team_id'] : null;
+                $toTeam = $it['to_team_id'] !== null ? (int) $it['to_team_id'] : null;
+                $prior = $it['prior_acquired'] !== null ? (string) $it['prior_acquired'] : 'draft';
+
+                // Undo the move: send the Player back to where they came from.
+                if ($toTeam !== null && $fromTeam !== null) {
+                    $this->rosters->movePlayer($seasonId, $playerId, $fromTeam, $prior);
+                } elseif ($fromTeam === null) {
+                    // Was an add from the pool → drop back to the pool.
+                    $this->rosters->removePlayer($seasonId, $playerId);
+                } else {
+                    // Was a drop to the pool → put the Player back on their Team.
+                    $this->rosters->addPlayer($leagueId, $seasonId, $fromTeam, $playerId, $prior);
+                }
+
+                // A Player leaving a Team (the one they were on) vacates any
+                // un-locked Lineup slot they held there.
+                if ($toTeam !== null) {
+                    $this->releaseFromLineup($leagueId, $seasonId, $toTeam, $playerId);
+                }
+            }
+            $this->ledger->setStatus($txnId, 'reversed', $commishUserId);
+            $this->pdo->commit();
+        } catch (PDOException $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
      * @param array<string,mixed> $txn a trade header
      */
     private function isExpired(array $txn): bool

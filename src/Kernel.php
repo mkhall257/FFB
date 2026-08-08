@@ -71,7 +71,7 @@ final class Kernel
         $lineup = new LineupController($lineupService, $lineupRepo, $rosters, $teams, $settings, $leagues, $view);
         $season = new SeasonController($settings, $leagues, $view);
         $playersPage = new PlayersController($transactionService, $players, $rosters, $teams, $leagues, $view);
-        $transactionsPage = new TransactionsController($transactionLedger, $leagues, $view);
+        $transactionsPage = new TransactionsController($transactionService, $transactionLedger, $leagues, $view);
         $tradesPage = new TradesController($transactionService, $transactionLedger, $rosters, $teams, $leagues, $view);
 
         $router = new Router();
@@ -98,6 +98,7 @@ final class Kernel
         $router->post('/admin/managers/reset', [$admin, 'resetPassword'], 'commissioner');
         $router->post('/admin/managers/status', [$admin, 'setManagerStatus'], 'commissioner');
         $router->get('/admin/unmatched-players', [$playerAdmin, 'unmatched'], 'commissioner');
+        $router->post('/admin/transactions/reverse', [$transactionsPage, 'reverse'], 'commissioner');
 
         $router->get('/admin/season', [$season, 'index'], 'commissioner');
         $router->post('/admin/season/week', [$season, 'startWeek'], 'commissioner');
