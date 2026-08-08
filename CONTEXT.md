@@ -70,7 +70,16 @@ A Draft where pick order reverses each round, so the Manager who picks first in 
 _Avoid_: Serpentine
 
 **Auto-pick**:
-The safety-net selection the system makes for a Manager who lets the pick timer expire — the best-ranked available Player.
+The single safety-net selection the system makes for a Manager whose pick timer expires — provided the Commissioner has left expiry-triggered Auto-pick enabled for the Draft (it is a Commissioner toggle; when disabled, an expired timer simply leaves the Team on the clock rather than picking for it). It chooses, in order: the highest available Player in that Manager's Queue; otherwise the best available Player by the global fallback ranking, filtered to positions the Team can still roster; and, when roster space runs short, it prioritises unfilled required starter slots so the Team always finishes with a legal Lineup. See ADR-0007.
+_Avoid_: conflating with Auto-draft (a per-Team mode, not a single event)
+
+**Auto-draft**:
+A per-Team mode the Commissioner can toggle during a Draft. While on, that Team's picks fire immediately on its turn using the same logic as Auto-pick, without waiting out the pick timer. Used when a Manager has left or is absent.
+_Avoid_: Auto-pick (the single expiry-triggered selection)
+
+**Queue**:
+A Manager's personal ranked wishlist of Players, built before the Draft and editable live during it. It drives that Manager's Auto-pick and lets them pick quickly on their turn. Each Manager's Queue is private to them.
+_Avoid_: Watchlist, wishlist (informal use is fine)
 
 ### Transactions
 
