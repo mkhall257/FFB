@@ -54,6 +54,27 @@ final class PlayerRepository
         return $position !== null && in_array($position, self::DRAFTABLE_POSITIONS, true);
     }
 
+    public function exists(string $sleeperId): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT 1 FROM players WHERE sleeper_id = ? LIMIT 1');
+        $stmt->execute([$sleeperId]);
+
+        return (bool) $stmt->fetchColumn();
+    }
+
+    /**
+     * The Sleeper id for a Player linked to the given nflverse (gsis) id, or null
+     * when no Player carries that link (an Unmatched Player; see ADR-0004/0006).
+     */
+    public function sleeperIdForNflverseId(string $nflverseId): ?string
+    {
+        $stmt = $this->pdo->prepare('SELECT sleeper_id FROM players WHERE nflverse_id = ? LIMIT 1');
+        $stmt->execute([$nflverseId]);
+        $id = $stmt->fetchColumn();
+
+        return $id === false ? null : (string) $id;
+    }
+
     public function positionOf(string $sleeperId): ?string
     {
         $stmt = $this->pdo->prepare('SELECT position FROM players WHERE sleeper_id = ?');
