@@ -37,6 +37,38 @@ final class MatchupRepository
     }
 
     /**
+     * Insert one playoff round's Matchups (tagged with the round number) at a
+     * given week. Rows are ordinary Matchups the Wave 3 pipeline scores unchanged.
+     *
+     * @param list<array{home_team_id:int,away_team_id:int}> $rows
+     */
+    public function insertPlayoffRound(int $leagueId, int $seasonId, int $week, int $round, array $rows): void
+    {
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO matchups (league_id, season_id, week, round, home_team_id, away_team_id)'
+            . ' VALUES (?, ?, ?, ?, ?, ?)'
+        );
+        foreach ($rows as $r) {
+            $stmt->execute([$leagueId, $seasonId, $week, $round, $r['home_team_id'], $r['away_team_id']]);
+        }
+    }
+
+    /**
+     * The Matchups of a playoff round, ordered by id.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function forRound(int $seasonId, int $round): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT * FROM matchups WHERE season_id = ? AND round = ? ORDER BY id'
+        );
+        $stmt->execute([$seasonId, $round]);
+
+        return $stmt->fetchAll();
+    }
+
+    /**
      * @return list<array<string,mixed>>
      */
     public function forWeek(int $seasonId, int $week): array

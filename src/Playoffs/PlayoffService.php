@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace FFB\Playoffs;
 
 use FFB\LeagueSettingsRepository;
+use FFB\MatchupRepository;
 use FFB\PlayoffRepository;
 use FFB\StandingsService;
 use FFB\TeamRepository;
@@ -28,6 +29,7 @@ final class PlayoffService
         private readonly StandingsService $standings,
         private readonly LeagueSettingsRepository $settings,
         private readonly TeamRepository $teams,
+        private readonly MatchupRepository $matchups,
     ) {
     }
 
@@ -72,11 +74,35 @@ final class PlayoffService
         $this->pdo->beginTransaction();
         try {
             $this->playoffs->saveSeeds($leagueId, $seasonId, $qualifiers);
+            $this->openRoundOne($leagueId, $seasonId, $regularWeeks, $qualifiers);
             $this->pdo->commit();
         } catch (\Throwable $e) {
             $this->pdo->rollBack();
             throw $e;
         }
+    }
+
+    /**
+     * Generate Round 1's Matchups from the frozen seeds by standard slotting.
+     * A seed with a bye has no Matchup this round; the higher seed in each game
+     * is home. Sets the playoff week current so the rest of the app points at it.
+     *
+     * @param list<int> $qualifiers seed order (index 0 = seed 1)
+     */
+    private function openRoundOne(int $leagueId, int $seasonId, int $regularWeeks, array $qualifiers): void
+    {
+        $fieldSize = count($qualifiers);
+        $rows = [];
+        foreach (Bracket::firstRoundGames($fieldSize) as $game) {
+            $rows[] = [
+                'home_team_id' => $qualifiers[$game['high'] - 1],
+                'away_team_id' => $qualifiers[$game['low'] - 1],
+            ];
+        }
+
+        $week = $regularWeeks + 1;
+        $this->matchups->insertPlayoffRound($leagueId, $seasonId, $week, 1, $rows);
+        $this->settings->setMany($leagueId, $seasonId, ['schedule.current_week' => (string) $week]);
     }
 
     /**
