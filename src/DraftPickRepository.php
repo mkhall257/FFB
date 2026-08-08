@@ -63,4 +63,45 @@ final class DraftPickRepository
 
         return (int) $stmt->fetchColumn();
     }
+
+    /**
+     * The full board with Team and Player names, for display.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function board(int $draftId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT dp.overall_pick, dp.round, dp.pick_in_round, dp.team_id, t.name AS team_name,'
+            . ' dp.player_id, dp.source, p.full_name AS player_name, p.position'
+            . ' FROM draft_picks dp'
+            . ' JOIN teams t ON t.id = dp.team_id'
+            . ' LEFT JOIN players p ON p.sleeper_id = dp.player_id'
+            . ' WHERE dp.draft_id = ? ORDER BY dp.overall_pick'
+        );
+        $stmt->execute([$draftId]);
+
+        /** @var list<array<string,mixed>> $rows */
+        $rows = $stmt->fetchAll();
+
+        return $rows;
+    }
+
+    public function isPlayerTaken(int $draftId, string $playerId): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT 1 FROM draft_picks WHERE draft_id = ? AND player_id = ? LIMIT 1'
+        );
+        $stmt->execute([$draftId, $playerId]);
+
+        return $stmt->fetchColumn() !== false;
+    }
+
+    public function assignPlayer(int $pickId, string $playerId, string $source): void
+    {
+        $stmt = $this->pdo->prepare(
+            'UPDATE draft_picks SET player_id = ?, source = ?, picked_at = NOW() WHERE id = ?'
+        );
+        $stmt->execute([$playerId, $source, $pickId]);
+    }
 }

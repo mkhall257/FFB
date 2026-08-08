@@ -6,9 +6,11 @@ namespace FFB;
 
 use FFB\Controllers\AdminController;
 use FFB\Controllers\DraftController;
+use FFB\Controllers\DraftRoomController;
 use FFB\Controllers\HomeController;
 use FFB\Controllers\LoginController;
 use FFB\Controllers\PlayerAdminController;
+use FFB\Draft\DraftService;
 use FFB\Http\Router;
 use PDO;
 
@@ -40,6 +42,9 @@ final class Kernel
         $playerAdmin = new PlayerAdminController($players, $syncLog, $view);
         $draft = new DraftController($pdo, $drafts, $draftPicks, $settings, $teams, $leagues, $view);
 
+        $draftService = new DraftService($pdo, $drafts, $draftPicks, $players);
+        $draftRoom = new DraftRoomController($draftService, $drafts, $draftPicks, $teams, $players, $leagues, $view);
+
         $router = new Router();
         $router->get('/login', [$login, 'show']);
         $router->post('/login', [$login, 'submit']);
@@ -59,6 +64,9 @@ final class Kernel
         $router->post('/admin/draft/order', [$draft, 'reorder'], 'commissioner');
         $router->post('/admin/draft/finalize', [$draft, 'finalize'], 'commissioner');
         $router->post('/admin/draft/start', [$draft, 'start'], 'commissioner');
+
+        $router->get('/draft', [$draftRoom, 'index'], 'authenticated');
+        $router->post('/draft/pick', [$draftRoom, 'pick'], 'authenticated');
 
         return $router;
     }

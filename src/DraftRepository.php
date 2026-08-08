@@ -84,6 +84,30 @@ final class DraftRepository
     }
 
     /**
+     * Move the clock to $pickNo with a fresh deadline from the pick timer.
+     */
+    public function advanceTo(int $draftId, int $pickNo, int $pickSeconds): void
+    {
+        $deadline = date('Y-m-d H:i:s', time() + $pickSeconds);
+        $stmt = $this->pdo->prepare(
+            'UPDATE drafts SET current_pick_no = ?, current_deadline = ? WHERE id = ?'
+        );
+        $stmt->execute([$pickNo, $deadline, $draftId]);
+    }
+
+    /**
+     * Mark the Draft Complete: no pick on the clock, no deadline.
+     */
+    public function complete(int $draftId): void
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE drafts SET state = 'complete', current_pick_no = NULL,"
+            . ' current_deadline = NULL, completed_at = NOW() WHERE id = ?'
+        );
+        $stmt->execute([$draftId]);
+    }
+
+    /**
      * Replace the draft order with the given Team ids, positioned 1..N in the
      * order supplied.
      *

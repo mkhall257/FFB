@@ -41,9 +41,51 @@ final class PlayerRepository
         $stmt->execute([$sleeperId, $nflverseId, $fullName, $position, $team, $status, $searchRank]);
     }
 
+    /** Positions that can be drafted/rostered (see CONTEXT.md). */
+    private const DRAFTABLE_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+
+    /**
+     * True when the Player exists and plays a draftable position.
+     */
+    public function isDraftable(string $sleeperId): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT position FROM players WHERE sleeper_id = ?');
+        $stmt->execute([$sleeperId]);
+        $position = $stmt->fetchColumn();
+
+        return $position !== false && in_array($position, self::DRAFTABLE_POSITIONS, true);
+    }
+
     public function count(): int
     {
         return (int) $this->pdo->query('SELECT COUNT(*) FROM players')->fetchColumn();
+    }
+
+    /**
+     * Draftable Players not yet taken in the given Draft, ordered by Sleeper
+     * rank (unranked last), then name. The best available first.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function availableForDraft(int $draftId, int $limit = 300): array
+    {
+        $limit = max(1, $limit);
+        $stmt = $this->pdo->prepare(
+            'SELECT p.sleeper_id, p.full_name, p.position, p.nfl_team, p.status, p.search_rank'
+            . ' FROM players p'
+            . " WHERE p.position IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')"
+            . ' AND NOT EXISTS ('
+            . '   SELECT 1 FROM draft_picks dp WHERE dp.draft_id = ? AND dp.player_id = p.sleeper_id'
+            . ' )'
+            . ' ORDER BY (p.search_rank IS NULL), p.search_rank, p.full_name'
+            . ' LIMIT ' . $limit
+        );
+        $stmt->execute([$draftId]);
+
+        /** @var list<array<string,mixed>> $rows */
+        $rows = $stmt->fetchAll();
+
+        return $rows;
     }
 
     public function linkedCount(): int

@@ -47,6 +47,22 @@ final class TeamRepository
     }
 
     /**
+     * The Team managed by a given user in a Season, or null.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findByUser(int $leagueId, int $seasonId, int $userId): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT * FROM teams WHERE league_id = ? AND season_id = ? AND user_id = ?'
+        );
+        $stmt->execute([$leagueId, $seasonId, $userId]);
+        $row = $stmt->fetch();
+
+        return $row === false ? null : $row;
+    }
+
+    /**
      * The Team ids for a Season, ordered by id.
      *
      * @return list<int>
