@@ -99,4 +99,44 @@ final class LineupServiceTest extends DatabaseTestCase
 
         $this->assertSame($first, $second);
     }
+
+    public function testSavingALegalLineupPersistsIt(): void
+    {
+        $team = $this->seedRosteredTeam();
+        $this->service()->saveLineup($this->leagueId(), $this->seasonId(), 1, $team, [
+            ['roster_slot' => 'QB', 'slot_index' => 0, 'player_id' => 'QB1'],
+            ['roster_slot' => 'FLEX', 'slot_index' => 0, 'player_id' => 'WR1'],
+        ]);
+
+        $rows = (new LineupRepository($this->pdo))->forTeamWeek($this->seasonId(), 1, $team);
+        $this->assertSame(['QB1', 'WR1'], array_column($rows, 'player_id'));
+    }
+
+    public function testSavingRejectsAPlayerNotOnTheRoster(): void
+    {
+        $team = $this->seedRosteredTeam();
+        $this->expectException(\FFB\Lineup\LineupException::class);
+        $this->service()->saveLineup($this->leagueId(), $this->seasonId(), 1, $team, [
+            ['roster_slot' => 'QB', 'slot_index' => 0, 'player_id' => 'NOT_ON_ROSTER'],
+        ]);
+    }
+
+    public function testSavingRejectsWrongPositionForSlot(): void
+    {
+        $team = $this->seedRosteredTeam(); // WR1 is a WR
+        $this->expectException(\FFB\Lineup\LineupException::class);
+        $this->service()->saveLineup($this->leagueId(), $this->seasonId(), 1, $team, [
+            ['roster_slot' => 'QB', 'slot_index' => 0, 'player_id' => 'WR1'],
+        ]);
+    }
+
+    public function testSavingRejectsAPlayerInTwoSlots(): void
+    {
+        $team = $this->seedRosteredTeam();
+        $this->expectException(\FFB\Lineup\LineupException::class);
+        $this->service()->saveLineup($this->leagueId(), $this->seasonId(), 1, $team, [
+            ['roster_slot' => 'RB', 'slot_index' => 0, 'player_id' => 'RB1'],
+            ['roster_slot' => 'FLEX', 'slot_index' => 0, 'player_id' => 'RB1'],
+        ]);
+    }
 }

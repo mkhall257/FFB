@@ -120,6 +120,49 @@ final class LineupService
     }
 
     /**
+     * Validate a Manager's chosen Lineup and persist it. Every non-null Player
+     * must be on the Team's Roster, appear at most once, and be eligible for its
+     * slot (exact position, or RB/WR/TE for FLEX).
+     *
+     * @param list<array{roster_slot:string,slot_index:int,player_id:?string}> $assignments
+     * @throws LineupException on any illegal assignment
+     */
+    public function saveLineup(int $leagueId, int $seasonId, int $week, int $teamId, array $assignments): void
+    {
+        $rosterPos = [];
+        foreach ($this->rosters->byTeam($seasonId)[$teamId] ?? [] as $p) {
+            $rosterPos[$p['player_id']] = $p['position'];
+        }
+
+        $seen = [];
+        foreach ($assignments as $a) {
+            $pid = $a['player_id'];
+            if ($pid === null) {
+                continue;
+            }
+            if (!isset($rosterPos[$pid])) {
+                throw new LineupException(422, 'That player is not on your roster.');
+            }
+            if (isset($seen[$pid])) {
+                throw new LineupException(422, 'A player can only start in one slot.');
+            }
+            $seen[$pid] = true;
+            if (!$this->eligible($a['roster_slot'], $rosterPos[$pid])) {
+                throw new LineupException(422, "That player can't start at {$a['roster_slot']}.");
+            }
+        }
+
+        $this->lineups->replaceForTeamWeek($leagueId, $seasonId, $week, $teamId, $assignments);
+    }
+
+    private function eligible(string $slot, string $position): bool
+    {
+        return $slot === 'FLEX'
+            ? in_array($position, self::FLEX_ELIGIBLE, true)
+            : $slot === $position;
+    }
+
+    /**
      * @param array<string,list<string>> $byPos
      * @param array<string,bool> $used
      */
