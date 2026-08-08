@@ -12,6 +12,7 @@ use FFB\Controllers\LineupController;
 use FFB\Controllers\LoginController;
 use FFB\Controllers\PlayerAdminController;
 use FFB\Controllers\PlayersController;
+use FFB\Controllers\RosterAdminController;
 use FFB\Controllers\ScoreboardController;
 use FFB\Controllers\SeasonController;
 use FFB\Controllers\StandingsController;
@@ -73,6 +74,7 @@ final class Kernel
         $playersPage = new PlayersController($transactionService, $players, $rosters, $teams, $leagues, $view);
         $transactionsPage = new TransactionsController($transactionService, $transactionLedger, $leagues, $view);
         $tradesPage = new TradesController($transactionService, $transactionLedger, $rosters, $teams, $leagues, $view);
+        $rosterAdmin = new RosterAdminController($transactionService, $rosters, $players, $teams, $leagues, $view);
 
         $router = new Router();
         $router->get('/login', [$login, 'show']);
@@ -99,6 +101,8 @@ final class Kernel
         $router->post('/admin/managers/status', [$admin, 'setManagerStatus'], 'commissioner');
         $router->get('/admin/unmatched-players', [$playerAdmin, 'unmatched'], 'commissioner');
         $router->post('/admin/transactions/reverse', [$transactionsPage, 'reverse'], 'commissioner');
+        $router->get('/admin/roster-edit', [$rosterAdmin, 'index'], 'commissioner');
+        $router->post('/admin/roster-edit', [$rosterAdmin, 'edit'], 'commissioner');
 
         $router->get('/admin/season', [$season, 'index'], 'commissioner');
         $router->post('/admin/season/week', [$season, 'startWeek'], 'commissioner');

@@ -9,7 +9,7 @@
 $unassigned = array_filter($teams, static fn (array $t): bool => $t['user_id'] === null);
 ?>
 <h1>Commissioner tools</h1>
-<p><a href="/">Home</a> · <a href="/admin/unmatched-players">Unmatched players</a> · <a href="/admin/draft">Draft setup</a> · <a href="/admin/season">Season control</a></p>
+<p><a href="/">Home</a> · <a href="/admin/unmatched-players">Unmatched players</a> · <a href="/admin/draft">Draft setup</a> · <a href="/admin/season">Season control</a> · <a href="/admin/roster-edit">Roster edit</a> · <a href="/transactions">Activity / reverse</a></p>
 
 <?php if (!empty($flash)): ?>
     <p role="status"><?= e($flash) ?></p>

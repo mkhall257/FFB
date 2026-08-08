@@ -254,6 +254,57 @@ final class TransactionService
     }
 
     /**
+     * The Commissioner's manual roster-edit escape hatch: place a Player on a
+     * Team (or, with a null target, drop them to the free-agent pool), bypassing
+     * the cap/availability/lock rules — but never uq_roster_player, since this
+     * relocates the Player's single Roster row rather than duplicating it.
+     * Recorded as a reversible commish_edit Transaction.
+     *
+     * @throws TransactionException when the Player is unknown or already where asked
+     */
+    public function commishSetPlayerTeam(
+        int $leagueId,
+        int $seasonId,
+        string $playerId,
+        ?int $toTeamId,
+        ?int $commishUserId,
+    ): int {
+        if (!$this->players->exists($playerId)) {
+            throw new TransactionException(422, 'That player does not exist.');
+        }
+        $fromTeam = $this->rosters->teamForPlayer($seasonId, $playerId);
+        if ($fromTeam === $toTeamId) {
+            throw new TransactionException(422, 'That player is already there.');
+        }
+        $prior = $this->rosters->acquiredOf($seasonId, $playerId);
+
+        $this->pdo->beginTransaction();
+        try {
+            if ($toTeamId === null) {
+                $this->rosters->removePlayer($seasonId, $playerId);
+            } elseif ($fromTeam === null) {
+                $this->rosters->addPlayer($leagueId, $seasonId, $toTeamId, $playerId, 'add');
+            } else {
+                $this->rosters->movePlayer($seasonId, $playerId, $toTeamId, 'trade');
+            }
+            if ($fromTeam !== null) {
+                $this->releaseFromLineup($leagueId, $seasonId, $fromTeam, $playerId);
+            }
+
+            $txnId = $this->ledger->createHeader(
+                $leagueId, $seasonId, 'commish_edit', 'applied', null, null, null, null, $commishUserId,
+            );
+            $this->ledger->addItem($txnId, $playerId, $fromTeam, $toTeamId, $prior);
+            $this->pdo->commit();
+
+            return $txnId;
+        } catch (PDOException $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
      * The Commissioner reverses an applied Transaction, restoring the exact prior
      * Roster state. Conflict-checked and non-cascading: the reversal is refused
      * (nothing changes) if any Player it touched has since moved, so undoing one
