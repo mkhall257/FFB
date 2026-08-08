@@ -136,6 +136,7 @@ final class TransactionRepository
      */
     public function openTradesForTeam(int $seasonId, int $teamId): array
     {
+        $this->expireStaleProposals($seasonId);
         $stmt = $this->pdo->prepare(
             'SELECT * FROM transactions'
             . " WHERE season_id = ? AND type = 'trade' AND proposal_outcome = 'proposed'"
@@ -155,6 +156,7 @@ final class TransactionRepository
      */
     public function incomingProposalCount(int $seasonId, int $teamId): int
     {
+        $this->expireStaleProposals($seasonId);
         $stmt = $this->pdo->prepare(
             'SELECT COUNT(*) FROM transactions'
             . " WHERE season_id = ? AND type = 'trade' AND proposal_outcome = 'proposed'"
@@ -163,6 +165,20 @@ final class TransactionRepository
         $stmt->execute([$seasonId, $teamId]);
 
         return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Stamp any past-due open Trade proposals as 'expired'. Expiry is computed
+     * lazily (no cron): callers run this before reading proposal lists or counts
+     * so stale offers cannot be acted on and drop off the UI (ADR-0010).
+     */
+    public function expireStaleProposals(int $seasonId): void
+    {
+        $this->pdo->prepare(
+            "UPDATE transactions SET proposal_outcome = 'expired'"
+            . " WHERE season_id = ? AND type = 'trade' AND proposal_outcome = 'proposed'"
+            . ' AND expires_at IS NOT NULL AND expires_at < NOW()'
+        )->execute([$seasonId]);
     }
 
     /**

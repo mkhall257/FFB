@@ -58,7 +58,7 @@ final class Kernel
         $transactionService = new TransactionService($pdo, $rosters, $players, $settings, $transactionLedger, $lineupService, $lineupRepo);
 
         $login = new LoginController($auth, $leagues, $view);
-        $home = new HomeController($view);
+        $home = new HomeController($teams, $transactionLedger, $leagues, $view);
         $admin = new AdminController($pdo, $teams, $users, $leagues, $view);
         $playerAdmin = new PlayerAdminController($players, $syncLog, $view);
         $autoPick = new AutoPickStrategy($draftQueues, $draftPicks, $players);

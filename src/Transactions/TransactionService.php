@@ -188,11 +188,24 @@ final class TransactionService
         if ((int) $txn['accepted_by_team'] !== $actingTeamId) {
             throw new TransactionException(403, 'Only the team the trade was offered to can accept it.');
         }
+        if ($this->isExpired($txn)) {
+            $this->ledger->setProposalOutcome($txnId, 'expired');
+            throw new TransactionException(409, 'This trade offer has expired.');
+        }
 
         $items = $this->ledger->items($txnId);
         foreach ($items as $it) {
             if ($this->rosters->teamForPlayer($seasonId, (string) $it['player_id']) !== (int) $it['from_team_id']) {
                 throw new TransactionException(409, 'This trade is no longer valid — a player involved has changed teams.');
+            }
+        }
+
+        // Re-check both sides against the roster cap: an uneven trade can push the
+        // receiving Team over its limit. Blocked rather than auto-dropping.
+        $cap = $this->rosterCap($leagueId, $seasonId);
+        foreach ($this->postTradeSizes($seasonId, $items) as $teamId => $newSize) {
+            if ($newSize > $cap) {
+                throw new TransactionException(409, 'This trade would put a team over the roster limit — renegotiate it.');
             }
         }
 
@@ -238,6 +251,37 @@ final class TransactionService
             throw new TransactionException(403, 'Only the team that proposed the trade can cancel it.');
         }
         $this->ledger->setProposalOutcome($txnId, 'cancelled');
+    }
+
+    /**
+     * @param array<string,mixed> $txn a trade header
+     */
+    private function isExpired(array $txn): bool
+    {
+        $expiresAt = $txn['expires_at'] ?? null;
+
+        return $expiresAt !== null && $expiresAt !== '' && $this->clock() > strtotime((string) $expiresAt);
+    }
+
+    /**
+     * The Roster size each involved Team would have after a Trade applied.
+     *
+     * @param list<array<string,mixed>> $items
+     * @return array<int,int> team_id => post-trade size
+     */
+    private function postTradeSizes(int $seasonId, array $items): array
+    {
+        $delta = [];
+        foreach ($items as $it) {
+            $delta[(int) $it['from_team_id']] = ($delta[(int) $it['from_team_id']] ?? 0) - 1;
+            $delta[(int) $it['to_team_id']] = ($delta[(int) $it['to_team_id']] ?? 0) + 1;
+        }
+        $sizes = [];
+        foreach ($delta as $teamId => $change) {
+            $sizes[$teamId] = $this->rosters->sizeForTeam($seasonId, $teamId) + $change;
+        }
+
+        return $sizes;
     }
 
     /**
