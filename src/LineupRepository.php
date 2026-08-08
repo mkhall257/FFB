@@ -54,6 +54,20 @@ final class LineupRepository
     }
 
     /**
+     * Empty the slot a Player holds in a Team's Lineup for a week, if any —
+     * leaving the slot present but unfilled. Used when the Player leaves the
+     * Roster (dropped or traded) during an un-locked week; the locked-week
+     * snapshot is never touched (the caller gates on the lock).
+     */
+    public function clearPlayer(int $seasonId, int $week, int $teamId, string $playerId): void
+    {
+        $this->pdo->prepare(
+            'UPDATE lineups SET player_id = NULL'
+            . ' WHERE season_id = ? AND week = ? AND team_id = ? AND player_id = ?'
+        )->execute([$seasonId, $week, $teamId, $playerId]);
+    }
+
+    /**
      * team_id => started (non-null) players for the week.
      *
      * @return array<int, list<array{roster_slot:string,player_id:string}>>

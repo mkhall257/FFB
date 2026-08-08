@@ -53,7 +53,7 @@ final class Kernel
         $transactionLedger = new TransactionRepository($pdo);
         $schedule = new ScheduleService(new ScheduleGenerator(), $matchups, $teams, $settings);
         $lineupService = new LineupService($lineupRepo, $rosters, $settings, new WeekLock($settings));
-        $transactionService = new TransactionService($pdo, $rosters, $players, $settings, $transactionLedger);
+        $transactionService = new TransactionService($pdo, $rosters, $players, $settings, $transactionLedger, $lineupService, $lineupRepo);
 
         $login = new LoginController($auth, $leagues, $view);
         $home = new HomeController($view);

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace FFB\Transactions;
 
 use FFB\LeagueSettingsRepository;
+use FFB\Lineup\LineupService;
+use FFB\LineupRepository;
 use FFB\PlayerRepository;
 use FFB\RosterRepository;
 use FFB\TransactionRepository;
@@ -26,6 +28,8 @@ final class TransactionService
         private readonly PlayerRepository $players,
         private readonly LeagueSettingsRepository $settings,
         private readonly TransactionRepository $ledger,
+        private readonly LineupService $lineups,
+        private readonly LineupRepository $lineupRepo,
     ) {
     }
 
@@ -75,6 +79,7 @@ final class TransactionService
 
             if ($dropPlayerId !== null) {
                 $this->rosters->removePlayer($seasonId, $dropPlayerId);
+                $this->releaseFromLineup($leagueId, $seasonId, $teamId, $dropPlayerId);
                 $this->ledger->addItem($txnId, $dropPlayerId, $teamId, null, $priorAcquired);
             }
 
@@ -104,6 +109,28 @@ final class TransactionService
 
         return $slot('qb') + $slot('rb') + $slot('wr') + $slot('te')
             + $slot('flex') + $slot('k') + $slot('def') + $slot('bench');
+    }
+
+    /**
+     * When a Player leaves a Team's Roster (dropped or traded away), clear the
+     * slot they hold in the current week's Lineup — but only if that week is not
+     * yet locked. A locked week's Lineup snapshot is left untouched, so the
+     * departed Player keeps scoring for that week (ADR-0008 / ADR-0010).
+     */
+    private function releaseFromLineup(int $leagueId, int $seasonId, int $teamId, string $playerId): void
+    {
+        $week = $this->currentWeek($leagueId, $seasonId);
+        if ($this->lineups->isLocked($leagueId, $seasonId, $week)) {
+            return;
+        }
+        $this->lineupRepo->clearPlayer($seasonId, $week, $teamId, $playerId);
+    }
+
+    private function currentWeek(int $leagueId, int $seasonId): int
+    {
+        $all = $this->settings->all($leagueId, $seasonId);
+
+        return max(1, (int) ($all['schedule.current_week'] ?? 1));
     }
 
     private function isUniqueViolation(PDOException $e): bool
