@@ -134,14 +134,17 @@ stats for the completed week, rescores it as final, and locks it:
 /usr/bin/php /home/USER/FFB/cron/settle_official.php
 ```
 
-Both read Commissioner-maintained `league_settings` (a settings UI comes in a
-later wave — set these directly for now):
+Both read Commissioner-maintained `league_settings`. Set these from the
+**Commissioner tools → Season control** page (`/admin/season`) — no database
+editing needed:
 
-- `schedule.current_week` — the NFL week being scored live.
-- `schedule.settle_week` — the week to settle (defaults to `current_week - 1`).
-- `schedule.season_year` — the NFL season year (defaults to the current year).
-- `schedule.week_<n>_kickoff` — ISO 8601 timestamp of week *n*'s first kickoff;
-  Lineups for that week lock at this time.
+- **Start a week** sets `schedule.current_week`, `schedule.season_year`, and that
+  week's `schedule.week_<n>_kickoff` (the lineup-lock time, prefilled to the
+  coming Thursday 8:20pm league time and editable).
+- The **Scoring** and **Roster shape** forms edit the `scoring.*` / `roster.*`
+  settings the engine reads.
+- `schedule.settle_week` defaults to `current_week - 1`; set it explicitly only
+  to re-settle a specific past week.
 
 ## 10. Verify
 
