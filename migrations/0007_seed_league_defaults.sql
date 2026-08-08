@@ -20,7 +20,7 @@ JOIN (
     UNION ALL SELECT 'roster.flex', '1'
     UNION ALL SELECT 'roster.k', '1'
     UNION ALL SELECT 'roster.def', '1'
-    UNION ALL SELECT 'roster.bench', '6'
+    UNION ALL SELECT 'roster.bench', '5'
     -- Scoring (Half-PPR): points per unit
     UNION ALL SELECT 'scoring.reception', '0.5'
     UNION ALL SELECT 'scoring.pass_yard', '0.04'
