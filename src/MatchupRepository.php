@@ -55,4 +55,11 @@ final class MatchupRepository
             'UPDATE matchups SET home_score = ?, away_score = ?, status = ? WHERE id = ?'
         )->execute([$homeScore, $awayScore, $status, $matchupId]);
     }
+
+    public function settleWeek(int $seasonId, int $week): void
+    {
+        $this->pdo->prepare(
+            "UPDATE matchups SET status = 'final' WHERE season_id = ? AND week = ?"
+        )->execute([$seasonId, $week]);
+    }
 }
