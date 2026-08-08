@@ -7,12 +7,16 @@ namespace FFB\Scoring;
 use FFB\Players\RemoteFile;
 
 /**
- * Downloads nflverse's weekly official player stats (a CSV release) and
+ * Downloads nflverse's weekly official player stats (the offense CSV release) and
  * normalizes each row to the scoring stat names, keyed by the gsis (nflverse) id.
  *
- * NOTE: the release URL and CSV column names in {@see normalize} must be verified
- * against the live nflverse release during implementation. The $map and the id
- * column are the single places to correct; the importer and scorer are agnostic.
+ * Scope (verified against the live 2024 release): this file covers offensive
+ * production only. Kicker and team-Defense scoring are NOT in it — kicking lives
+ * in a separate release file and nflverse has no team points-allowed figure at
+ * all (its defense file is individual defenders). K and DEF therefore keep their
+ * live Sleeper values through settlement rather than being overwritten with
+ * zeros; see ADR-0009. Fumbles lost are summed across the sack/rushing/receiving
+ * columns.
  */
 final class NflverseStatsClient
 {
@@ -22,10 +26,21 @@ final class NflverseStatsClient
     public function fetchWeek(int $season, int $week): array
     {
         $url = "https://github.com/nflverse/nflverse-data/releases/download/player_stats/player_stats_{$season}.csv";
-        $rows = $this->parseCsv(RemoteFile::get($url));
 
+        return $this->rowsForWeek(RemoteFile::get($url), $week);
+    }
+
+    /**
+     * Parse a player-stats CSV and return the normalized lines for one week,
+     * keyed by gsis id. Public so it can be tested against fixture CSV without
+     * touching the network.
+     *
+     * @return array<string, array<string,float>> gsis_id => normalized stat line
+     */
+    public function rowsForWeek(string $csv, int $week): array
+    {
         $out = [];
-        foreach ($rows as $row) {
+        foreach ($this->parseCsv($csv) as $row) {
             if ((int) ($row['week'] ?? 0) !== $week) {
                 continue;
             }
@@ -48,7 +63,7 @@ final class NflverseStatsClient
         if ($lines === []) {
             return [];
         }
-        $header = str_getcsv(array_shift($lines));
+        $header = str_getcsv((string) array_shift($lines));
         $rows = [];
         foreach ($lines as $line) {
             if ($line === '') {
@@ -62,25 +77,32 @@ final class NflverseStatsClient
     }
 
     /**
-     * Map nflverse column names to our scoring stat names.
+     * Map nflverse offense column names to our scoring stat names.
      *
      * @param array<string,string> $row
      * @return array<string,float>
      */
     private function normalize(array $row): array
     {
+        $num = static fn (string $col): float => isset($row[$col]) && $row[$col] !== '' ? (float) $row[$col] : 0.0;
+
         $map = [
             'receptions' => 'reception', 'passing_yards' => 'pass_yard',
             'passing_tds' => 'pass_td', 'interceptions' => 'pass_int',
             'rushing_yards' => 'rush_yard', 'rushing_tds' => 'rush_td',
             'receiving_yards' => 'rec_yard', 'receiving_tds' => 'rec_td',
-            'rushing_fumbles_lost' => 'fumble_lost',
         ];
         $line = [];
         foreach ($map as $from => $to) {
             if (isset($row[$from]) && $row[$from] !== '') {
                 $line[$to] = (float) $row[$from];
             }
+        }
+
+        // Fumbles lost are split across three columns in nflverse; sum them.
+        $fumbles = $num('sack_fumbles_lost') + $num('rushing_fumbles_lost') + $num('receiving_fumbles_lost');
+        if ($fumbles > 0.0) {
+            $line['fumble_lost'] = $fumbles;
         }
 
         return $line;
