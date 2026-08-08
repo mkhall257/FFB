@@ -62,6 +62,14 @@ final class LineupService
     }
 
     /**
+     * Whether the week's Lineups are locked (past first kickoff).
+     */
+    public function isLocked(int $leagueId, int $seasonId, int $week): bool
+    {
+        return $this->lock->isLocked($leagueId, $seasonId, $week, ($this->now)());
+    }
+
+    /**
      * Ensure the Team has a Lineup for the week: carry forward the previous
      * week's, or (Week 1 / no prior) auto-fill best-legal rostered Players. A
      * no-op when a Lineup already exists.
