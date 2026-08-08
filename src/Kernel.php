@@ -11,6 +11,7 @@ use FFB\Controllers\HomeController;
 use FFB\Controllers\LineupController;
 use FFB\Controllers\LoginController;
 use FFB\Controllers\PlayerAdminController;
+use FFB\Controllers\PlayersController;
 use FFB\Controllers\ScoreboardController;
 use FFB\Controllers\SeasonController;
 use FFB\Controllers\StandingsController;
@@ -21,6 +22,7 @@ use FFB\Lineup\LineupService;
 use FFB\Lineup\WeekLock;
 use FFB\Schedule\ScheduleGenerator;
 use FFB\Schedule\ScheduleService;
+use FFB\Transactions\TransactionService;
 use PDO;
 
 /**
@@ -48,8 +50,10 @@ final class Kernel
         $settings = new LeagueSettingsRepository($pdo);
         $matchups = new MatchupRepository($pdo);
         $lineupRepo = new LineupRepository($pdo);
+        $transactionLedger = new TransactionRepository($pdo);
         $schedule = new ScheduleService(new ScheduleGenerator(), $matchups, $teams, $settings);
         $lineupService = new LineupService($lineupRepo, $rosters, $settings, new WeekLock($settings));
+        $transactionService = new TransactionService($pdo, $rosters, $players, $settings, $transactionLedger);
 
         $login = new LoginController($auth, $leagues, $view);
         $home = new HomeController($view);
@@ -64,6 +68,7 @@ final class Kernel
         $scoreboard = new ScoreboardController($matchups, $teams, $settings, $leagues, $view);
         $lineup = new LineupController($lineupService, $lineupRepo, $rosters, $teams, $settings, $leagues, $view);
         $season = new SeasonController($settings, $leagues, $view);
+        $playersPage = new PlayersController($transactionService, $players, $rosters, $teams, $leagues, $view);
 
         $router = new Router();
         $router->get('/login', [$login, 'show']);
@@ -74,6 +79,8 @@ final class Kernel
         $router->get('/scoreboard', [$scoreboard, 'index'], 'authenticated');
         $router->get('/lineup', [$lineup, 'index'], 'authenticated');
         $router->post('/lineup', [$lineup, 'save'], 'authenticated');
+        $router->get('/players', [$playersPage, 'index'], 'authenticated');
+        $router->post('/players/add', [$playersPage, 'add'], 'authenticated');
 
         $router->get('/admin', [$admin, 'index'], 'commissioner');
         $router->post('/admin/teams', [$admin, 'createTeam'], 'commissioner');
