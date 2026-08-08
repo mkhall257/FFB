@@ -10,6 +10,7 @@ use FFB\Controllers\DraftRoomController;
 use FFB\Controllers\HomeController;
 use FFB\Controllers\LoginController;
 use FFB\Controllers\PlayerAdminController;
+use FFB\Draft\AutoPickStrategy;
 use FFB\Draft\DraftService;
 use FFB\Http\Router;
 use PDO;
@@ -43,7 +44,8 @@ final class Kernel
         $playerAdmin = new PlayerAdminController($players, $syncLog, $view);
         $draft = new DraftController($pdo, $drafts, $draftPicks, $settings, $teams, $leagues, $view);
 
-        $draftService = new DraftService($pdo, $drafts, $draftPicks, $players);
+        $autoPick = new AutoPickStrategy($draftQueues, $draftPicks, $players);
+        $draftService = new DraftService($pdo, $drafts, $draftPicks, $players, $autoPick, $settings, $leagues);
         $draftRoom = new DraftRoomController($draftService, $drafts, $draftPicks, $draftQueues, $teams, $players, $leagues, $view);
 
         $router = new Router();

@@ -44,6 +44,13 @@ final class DraftRoomController
         $flash = $session->get('flash');
         $session->remove('flash');
 
+        // Polling drives the clock: any load of the room resolves an expired
+        // pick (see ADR-0003, ADR-0007).
+        $draft = $this->drafts->find($this->leagues->currentLeagueId(), $this->leagues->currentSeasonId());
+        if ($draft !== null) {
+            $this->service->processExpiryIfDue($draft);
+        }
+
         return $this->renderRoom($session, is_string($flash) ? $flash : null, null);
     }
 

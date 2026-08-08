@@ -87,6 +87,29 @@ final class DraftPickRepository
         return $rows;
     }
 
+    /**
+     * A Team's made picks grouped by Player position: position => count.
+     *
+     * @return array<string,int>
+     */
+    public function rosterPositionCounts(int $draftId, int $teamId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT p.position, COUNT(*) AS c FROM draft_picks dp'
+            . ' JOIN players p ON p.sleeper_id = dp.player_id'
+            . ' WHERE dp.draft_id = ? AND dp.team_id = ? AND dp.player_id IS NOT NULL'
+            . ' GROUP BY p.position'
+        );
+        $stmt->execute([$draftId, $teamId]);
+
+        $out = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $out[(string) $row['position']] = (int) $row['c'];
+        }
+
+        return $out;
+    }
+
     public function isPlayerTaken(int $draftId, string $playerId): bool
     {
         $stmt = $this->pdo->prepare(

@@ -49,11 +49,51 @@ final class PlayerRepository
      */
     public function isDraftable(string $sleeperId): bool
     {
+        $position = $this->positionOf($sleeperId);
+
+        return $position !== null && in_array($position, self::DRAFTABLE_POSITIONS, true);
+    }
+
+    public function positionOf(string $sleeperId): ?string
+    {
         $stmt = $this->pdo->prepare('SELECT position FROM players WHERE sleeper_id = ?');
         $stmt->execute([$sleeperId]);
         $position = $stmt->fetchColumn();
 
-        return $position !== false && in_array($position, self::DRAFTABLE_POSITIONS, true);
+        return $position === false || $position === null ? null : (string) $position;
+    }
+
+    /**
+     * The best available (undrafted) draftable Player for a Draft by Sleeper
+     * rank, optionally restricted to a set of positions. Returns the sleeper_id
+     * or null when nothing matches.
+     *
+     * @param list<string>|null $positions restrict to these positions, or null for any draftable
+     */
+    public function bestAvailable(int $draftId, ?array $positions = null): ?string
+    {
+        $allowed = self::DRAFTABLE_POSITIONS;
+        if ($positions !== null) {
+            $allowed = array_values(array_intersect($allowed, $positions));
+            if ($allowed === []) {
+                return null;
+            }
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($allowed), '?'));
+        $stmt = $this->pdo->prepare(
+            'SELECT p.sleeper_id FROM players p'
+            . " WHERE p.position IN ({$placeholders})"
+            . ' AND NOT EXISTS ('
+            . '   SELECT 1 FROM draft_picks dp WHERE dp.draft_id = ? AND dp.player_id = p.sleeper_id'
+            . ' )'
+            . ' ORDER BY (p.search_rank IS NULL), p.search_rank, p.full_name'
+            . ' LIMIT 1'
+        );
+        $stmt->execute([...$allowed, $draftId]);
+        $id = $stmt->fetchColumn();
+
+        return $id === false ? null : (string) $id;
     }
 
     public function count(): int

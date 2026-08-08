@@ -6,6 +6,8 @@ namespace FFB\Draft;
 
 use FFB\DraftPickRepository;
 use FFB\DraftRepository;
+use FFB\LeagueRepository;
+use FFB\LeagueSettingsRepository;
 use FFB\PlayerRepository;
 use PDO;
 use PDOException;
@@ -26,7 +28,63 @@ final class DraftService
         private readonly DraftRepository $drafts,
         private readonly DraftPickRepository $picks,
         private readonly PlayerRepository $players,
+        private readonly AutoPickStrategy $autoPick,
+        private readonly LeagueSettingsRepository $settings,
+        private readonly LeagueRepository $leagues,
     ) {
+    }
+
+    /**
+     * If the pick on the clock has timed out and the Commissioner has left
+     * expiry Auto-pick enabled, make the Auto-pick for the on-the-clock Team.
+     * With the toggle off, an expired timer simply leaves the Team on the clock.
+     *
+     * @param array<string,mixed> $draft the current drafts row
+     * @return bool whether an Auto-pick was made
+     */
+    public function processExpiryIfDue(array $draft): bool
+    {
+        if (($draft['state'] ?? null) !== 'live' || $draft['current_pick_no'] === null) {
+            return false;
+        }
+        if ((int) $draft['autopick_on_expiry'] !== 1) {
+            return false;
+        }
+        $deadline = $draft['current_deadline'];
+        if ($deadline === null || strtotime((string) $deadline) > time()) {
+            return false;
+        }
+
+        $current = $this->picks->findByOverall((int) $draft['id'], (int) $draft['current_pick_no']);
+        if ($current === null) {
+            return false;
+        }
+
+        return $this->autoPickFor($draft, (int) $current['team_id']);
+    }
+
+    /**
+     * Make an Auto-pick for a Team (its Queue, then the position-aware Sleeper
+     * fallback with the legal-lineup guarantee). Used by expiry and, later, by
+     * Commissioner-driven Auto-draft.
+     *
+     * @param array<string,mixed> $draft
+     * @return bool whether a pick was made
+     */
+    public function autoPickFor(array $draft, int $teamId): bool
+    {
+        $settings = $this->settings->all(
+            $this->leagues->currentLeagueId(),
+            $this->leagues->currentSeasonId(),
+        );
+        $playerId = $this->autoPick->choose((int) $draft['id'], $teamId, $settings);
+        if ($playerId === null) {
+            return false;
+        }
+
+        $this->pick($draft, $teamId, $playerId, 'auto');
+
+        return true;
     }
 
     /**
