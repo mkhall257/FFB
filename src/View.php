@@ -37,11 +37,25 @@ final class View
      * Render an inner template and wrap it in the site layout.
      *
      * @param array<string,mixed> $data
+     * @param string $active  Nav key to mark active in the layout (e.g. 'home'); '' for none.
+     * @param string $pageCss Page stylesheet basename under public/assets/css/pages/; '' for none.
+     * @param string $layout  Layout template to wrap the content in (default 'layout').
      */
-    public function page(string $template, string $title, array $data = []): string
-    {
+    public function page(
+        string $template,
+        string $title,
+        array $data = [],
+        string $active = '',
+        string $pageCss = '',
+        string $layout = 'layout',
+    ): string {
         $content = $this->render($template, $data);
 
-        return $this->render('layout', ['title' => $title, 'content' => $content]);
+        return $this->render($layout, [
+            'title' => $title,
+            'content' => $content,
+            'active' => $active,
+            'pageCss' => $pageCss,
+        ]);
     }
 }

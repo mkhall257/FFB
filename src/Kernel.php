@@ -25,6 +25,7 @@ use FFB\Http\Router;
 use FFB\Lineup\LineupService;
 use FFB\Lineup\WeekLock;
 use FFB\Playoffs\PlayoffService;
+use FFB\Scoring\MatchupDetailService;
 use FFB\Scoring\MatchupScoringService;
 use FFB\Scoring\ScoringEngine;
 use FFB\Schedule\ScheduleGenerator;
@@ -73,7 +74,10 @@ final class Kernel
         $draft = new DraftController($pdo, $drafts, $draftPicks, $draftService, $settings, $teams, $players, $rosters, $leagues, $matchups, $view);
         $draftRoom = new DraftRoomController($draftService, $drafts, $draftPicks, $draftQueues, $teams, $players, $leagues, $view);
         $standings = new StandingsController(new StandingsService($pdo), $teams, $leagues, $view);
-        $scoreboard = new ScoreboardController($matchups, $teams, $settings, $leagues, $view);
+        $matchupDetail = new MatchupDetailService(
+            $matchups, $lineupRepo, new PlayerWeekStatsRepository($pdo), $players, new ScoringEngine(), $settings,
+        );
+        $scoreboard = new ScoreboardController($matchups, $matchupDetail, new StandingsService($pdo), $teams, $settings, $leagues, $view);
         $lineup = new LineupController($lineupService, $lineupRepo, $rosters, $teams, $settings, $leagues, $view);
         $season = new SeasonController($settings, $leagues, $view);
         $playersPage = new PlayersController($transactionService, $players, $rosters, $teams, $leagues, $view);

@@ -123,6 +123,40 @@ final class PlayerRepository
     }
 
     /**
+     * Bulk metadata lookup for a set of sleeper ids. Missing ids are simply
+     * absent from the result. Used by read models (e.g. the Matchup detail) that
+     * have a list of player ids and need names/positions/teams/status in one hop.
+     *
+     * @param list<string> $ids
+     * @return array<string, array{name:string,position:string,nfl_team:string,status:string}>
+     */
+    public function byIds(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter($ids, static fn ($x): bool => is_string($x) && $x !== '')));
+        if ($ids === []) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->pdo->prepare(
+            "SELECT sleeper_id, full_name, position, nfl_team, status FROM players WHERE sleeper_id IN ({$placeholders})"
+        );
+        $stmt->execute($ids);
+
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $out[(string) $r['sleeper_id']] = [
+                'name' => (string) ($r['full_name'] ?? ''),
+                'position' => (string) ($r['position'] ?? ''),
+                'nfl_team' => (string) ($r['nfl_team'] ?? ''),
+                'status' => (string) ($r['status'] ?? ''),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
      * Draftable Players not yet taken in the given Draft, ordered by Sleeper
      * rank (unranked last), then name. The best available first.
      *
