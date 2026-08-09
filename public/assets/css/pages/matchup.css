@@ -1,0 +1,79 @@
+/* ================================================================
+   Matchup page — broadcast comparison. Loaded on top of app.css.
+   ================================================================ */
+
+/* Week banner */
+.mu-week{display:flex;align-items:center;justify-content:center;gap:14px;margin:6px 0}
+.mu-week::before,.mu-week::after{content:"";height:1px;width:56px;background:linear-gradient(90deg,transparent,var(--df-green-600))}
+.mu-week::after{background:linear-gradient(90deg,var(--df-green-600),transparent)}
+.mu-week div{text-align:center}
+.mu-week b{font-family:var(--font-display);font-weight:700;letter-spacing:.12em;font-size:1.05rem;text-transform:uppercase}
+.mu-week span{display:block;font-size:.62rem;letter-spacing:.34em;color:var(--df-muted);font-weight:700;text-transform:uppercase}
+
+/* Matchup header: crest + name + record | VS | crest + name */
+.mu-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-top:6px}
+.mu-team{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px}
+.mu-crest{width:104px;height:104px;border-radius:50%;object-fit:cover;
+  border:3px solid var(--pro-ring);box-shadow:0 0 0 2px rgba(0,0,0,.6),var(--pro-glow-soft);
+  background:radial-gradient(circle,#0c130e,#05080600)}
+.mu-team h2{font-family:var(--font-team);font-weight:400;font-size:1.9rem;line-height:.95;letter-spacing:.03em;margin:2px 0 0;text-transform:uppercase}
+.mu-rec{font-size:.72rem;letter-spacing:.06em;color:var(--df-silver);font-weight:700}
+.mu-rec b{color:var(--df-white)}
+
+.mu-vs{display:grid;place-items:center;position:relative;width:90px}
+.mu-vs svg{width:90px;height:140px;filter:drop-shadow(0 0 10px rgba(22,163,74,.6))}
+.mu-vs b{position:absolute;font-family:var(--font-display);font-style:italic;font-weight:700;font-size:3rem;color:var(--df-white);text-shadow:0 2px 8px #000}
+
+/* Live totals + comparison bar */
+.mu-live{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;margin:16px 0 18px}
+.mu-score{text-align:center}
+.mu-score b{font-family:var(--font-stat);font-weight:800;font-size:2.9rem;line-height:1;color:var(--df-green-500);text-shadow:var(--pro-glow)}
+.mu-score span{display:block;font-size:.62rem;letter-spacing:.3em;color:var(--df-muted);font-weight:700;text-transform:uppercase}
+.mu-barwrap{position:relative;padding:0 6px;min-width:0}
+.mu-bar{height:16px;border-radius:999px;background:#26302a;overflow:hidden;display:flex;box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
+.mu-bar i{display:block;height:100%}
+.mu-bar .l{background:linear-gradient(90deg,#0b8f46,#30db73);box-shadow:0 0 12px rgba(48,219,115,.6)}
+.mu-bar .r{background:linear-gradient(90deg,#3a4640,#586256)}
+.mu-medal{position:absolute;top:8px;width:34px;height:34px;border-radius:50%;object-fit:cover;transform:translateY(-50%);border:2px solid #0a0d0b;box-shadow:0 0 0 1px var(--pro-ring)}
+.mu-medal.l{left:32%}
+.mu-medal.r{right:32%}
+.mu-remain{display:flex;justify-content:space-between;margin-top:6px;font-size:.58rem;letter-spacing:.12em;color:var(--df-muted);font-weight:700;text-transform:uppercase}
+
+/* Per-starter comparison rows */
+.mu-list{display:flex;flex-direction:column;gap:8px}
+.mu-row{display:grid;
+  grid-template-columns:48px minmax(0,1fr) auto 46px auto minmax(0,1fr) 48px;
+  align-items:center;gap:6px;
+  background:linear-gradient(90deg,rgba(22,163,74,.10),var(--pro-row) 18% 82%,rgba(22,163,74,.10));
+  border:1px solid #1c261f;border-radius:10px;padding:8px 6px;
+  clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%)}
+.mu-row:nth-child(even){clip-path:polygon(0 0,calc(100% - 10px) 0,100% 100%,10px 100%)}
+.mu-av{width:40px;height:40px;border-radius:50%;flex:0 0 40px;display:grid;place-items:center;
+  font-family:var(--font-display);font-weight:700;font-size:.9rem;color:#dfe7e2;
+  background:radial-gradient(circle at 30% 25%,#20402e,#0c1611);border:2px solid #2c3a31;position:relative}
+.mu-meta{min-width:0;overflow:hidden}
+.mu-meta .nm{font-family:var(--font-display);font-weight:600;font-size:.98rem;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mu-meta .sub{font-size:.6rem;color:var(--df-muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mu-pts{font-family:var(--font-stat);font-weight:800;font-size:1.5rem;line-height:1;min-width:44px;text-align:center}
+.mu-pos{font-family:var(--font-display);font-weight:700;font-size:.72rem;letter-spacing:.04em;color:var(--df-muted);text-align:center;
+  background:#0c110e;border:1px solid #263029;border-radius:6px;padding:8px 0}
+.mu-pill{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);
+  font-size:.5rem;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:999px;white-space:nowrap;border:1px solid currentColor;background:#06090799}
+.pill-active{color:#34d674}
+.pill-quest{color:var(--df-warning)}
+.pill-out{color:var(--df-danger)}
+
+.mu-empty{padding:22px;text-align:center;color:var(--df-muted);font-weight:700;letter-spacing:.04em}
+.mu-statewrap{display:flex;justify-content:center;margin:-6px 0 14px}
+
+@media (max-width:640px){
+  .mu-crest{width:84px;height:84px}
+  .mu-team h2{font-size:1.2rem}
+  .mu-vs{width:62px}.mu-vs svg{width:62px;height:104px}.mu-vs b{font-size:2rem}
+  .mu-score b{font-size:2.05rem}
+  .mu-row{grid-template-columns:34px minmax(0,1fr) auto 38px auto minmax(0,1fr) 34px;gap:4px;padding:8px 4px}
+  .mu-av{width:34px;height:34px;flex-basis:34px;font-size:.78rem}
+  .mu-meta .nm{font-size:.82rem}
+  .mu-pts{font-size:1.2rem;min-width:34px}
+  .mu-medal.l{left:26%}.mu-medal.r{right:26%}
+}

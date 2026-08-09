@@ -1,0 +1,38 @@
+:root {
+  /* Brand colors */
+  --df-green-500:#16A34A;
+  --df-green-600:#0B8F46;
+  --df-green-700:#075B32;
+  --df-green-800:#063E2E;
+  --df-black:#080B0C;
+  --df-charcoal:#111814;
+  --df-panel:#151D18;
+  --df-slate:#1F2A1F;
+  --df-border:#34433A;
+  --df-white:#F5F7F6;
+  --df-muted:#9AA49E;
+  --df-silver:#C9D0CC;
+  --df-gold:#D4AF37;
+  --df-danger:#D94841;
+  --df-warning:#E4A62B;
+  --df-blue:#42A5F5;
+
+  /* Typography */
+  --font-display:"Oswald","Arial Narrow",Arial,sans-serif;
+  --font-stat:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --font-ui:"Inter",Arial,Helvetica,sans-serif;
+
+  /* Desktop layout */
+  --page-max:1440px;
+  --page-pad:32px;
+  --nav-height:72px;
+  --sidebar-width:232px;
+  --grid-gap:20px;
+
+  /* Radius and shadow */
+  --r-sm:6px;
+  --r-md:10px;
+  --r-lg:16px;
+  --shadow-panel:0 14px 40px rgba(0,0,0,.32);
+  --shadow-green:0 0 28px rgba(22,163,74,.18);
+}

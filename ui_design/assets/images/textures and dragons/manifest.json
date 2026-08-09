@@ -1,0 +1,42 @@
+[
+  {
+    "file": "textures/01_texture_dragon_scales_seamless.png",
+    "source": "/mnt/data/ghostwriter_images/generated/a_detailed_high_resolution_seamless_fantasy_textu_1_batch_1.png"
+  },
+  {
+    "file": "textures/02_texture_dark_grunge_abstract.png",
+    "source": "/mnt/data/ghostwriter_images/generated/a_dark_grungy_abstract_background_texture_image_2_batch_2.png"
+  },
+  {
+    "file": "textures/03_texture_field_topdown.png",
+    "source": "/mnt/data/ghostwriter_images/generated/a_seamless_top_down_angled_texture_like_scene_of_3_batch_3.png"
+  },
+  {
+    "file": "textures/04_texture_abstract_smoke_green.png",
+    "source": "/mnt/data/ghostwriter_images/generated/a_full_frame_ultra_detailed_abstract_background_s_4_batch_4.png"
+  },
+  {
+    "file": "textures/05_texture_cyber_armor_panels.png",
+    "source": "/mnt/data/neon_green_cybernetic_armor_panels.png"
+  },
+  {
+    "file": "dragons/01_dragon_roaring_emblem.png",
+    "source": "/mnt/data/emerald_roaring_dragon_emblem.png"
+  },
+  {
+    "file": "dragons/02_dragon_shadow_poised_to_strike.png",
+    "source": "/mnt/data/emerald_shadow_dragon_poised_to_strike.png"
+  },
+  {
+    "file": "dragons/03_dragon_head_original.png",
+    "source": "/mnt/data/ghostwriter_images/generated/a_digital_illustration_of_a_dragon_s_head_is_desig_6_batch_6.png"
+  },
+  {
+    "file": "dragons/04_dragon_fantasy_athletic_variant.png",
+    "source": "/mnt/data/ghostwriter_images/generated/a_digital_illustration_in_a_fantasy_and_athletic_i_7_batch_7.png"
+  },
+  {
+    "file": "dragons/05_dragon_sports_fantasy_variant.png",
+    "source": "/mnt/data/ghostwriter_images/generated/a_digital_illustration_in_a_sports_and_fantasy_ill_8_batch_8.png"
+  }
+]

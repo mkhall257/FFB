@@ -1,0 +1,107 @@
+[
+  {
+    "file": "misc/01_misc_dragon_eye_closeup.png",
+    "size": [
+      1600,
+      1203
+    ]
+  },
+  {
+    "file": "misc/02_misc_player_tunnel.png",
+    "size": [
+      1600,
+      1301
+    ]
+  },
+  {
+    "file": "misc/03_misc_texas_dragon_overlay.png",
+    "size": [
+      1600,
+      1329
+    ]
+  },
+  {
+    "file": "misc/04_misc_dragon_claw_tear.png",
+    "size": [
+      1600,
+      1200
+    ]
+  },
+  {
+    "file": "misc/05_misc_smoke_football.png",
+    "size": [
+      1600,
+      1292
+    ]
+  },
+  {
+    "file": "ui-elements/01_ui_buttons_set.png",
+    "size": [
+      1400,
+      994
+    ]
+  },
+  {
+    "file": "ui-elements/02_ui_navigation_bar.png",
+    "size": [
+      1400,
+      386
+    ]
+  },
+  {
+    "file": "ui-elements/03_ui_stat_card.png",
+    "size": [
+      1400,
+      945
+    ]
+  },
+  {
+    "file": "ui-elements/04_ui_progress_bars.png",
+    "size": [
+      1400,
+      901
+    ]
+  },
+  {
+    "file": "ui-elements/05_ui_notifications.png",
+    "size": [
+      1400,
+      819
+    ]
+  },
+  {
+    "file": "patterns/01_pattern_hex_dark.png",
+    "size": [
+      1400,
+      865
+    ]
+  },
+  {
+    "file": "patterns/02_pattern_brushed_metal.png",
+    "size": [
+      1400,
+      808
+    ]
+  },
+  {
+    "file": "patterns/03_pattern_carbon_fiber.png",
+    "size": [
+      1400,
+      859
+    ]
+  },
+  {
+    "file": "patterns/04_pattern_smoke_green.png",
+    "size": [
+      1400,
+      824
+    ]
+  },
+  {
+    "file": "patterns/05_pattern_concrete_cracked.png",
+    "size": [
+      1400,
+      847
+    ]
+  }
+]

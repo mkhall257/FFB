@@ -1,0 +1,72 @@
+[
+  {
+    "file": "trophies/01_trophy_dragon_cup.png",
+    "size": [
+      1200,
+      699
+    ]
+  },
+  {
+    "file": "trophies/02_trophy_dragon_throne.png",
+    "size": [
+      1200,
+      517
+    ]
+  },
+  {
+    "file": "trophies/03_trophy_fantasy_champion.png",
+    "size": [
+      1200,
+      699
+    ]
+  },
+  {
+    "file": "trophies/04_trophy_mvp_medal.png",
+    "size": [
+      1200,
+      1096
+    ]
+  },
+  {
+    "file": "trophies/05_trophy_league_champion_badge.png",
+    "size": [
+      1200,
+      775
+    ]
+  },
+  {
+    "file": "badges/01_badge_football_shield.png",
+    "size": [
+      900,
+      573
+    ]
+  },
+  {
+    "file": "badges/02_badge_skull_helmet.png",
+    "size": [
+      900,
+      517
+    ]
+  },
+  {
+    "file": "badges/03_badge_star_shield.png",
+    "size": [
+      900,
+      520
+    ]
+  },
+  {
+    "file": "badges/04_badge_coin_stack.png",
+    "size": [
+      900,
+      526
+    ]
+  },
+  {
+    "file": "badges/05_badge_dragon_champion.png",
+    "size": [
+      900,
+      759
+    ]
+  }
+]

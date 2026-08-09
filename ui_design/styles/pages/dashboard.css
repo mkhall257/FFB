@@ -1,0 +1,2 @@
+.dashboard-grid{display:grid;grid-template-columns:1.25fr 1fr .8fr;gap:20px}
+.dashboard-grid .panel{padding:18px}.activity-list{display:grid;gap:10px}.activity-row{padding:10px 0;border-bottom:1px solid var(--df-border)}

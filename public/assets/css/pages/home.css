@@ -1,0 +1,32 @@
+/* ================================================================
+   Home — broadcast landing. Loaded on top of app.css.
+   ================================================================ */
+
+.home-hero{position:relative;border-radius:16px;overflow:hidden;margin:8px 0 20px;
+  border:1px solid #1c261f;box-shadow:0 18px 50px rgba(0,0,0,.45);
+  background:linear-gradient(180deg,rgba(4,7,5,.35),rgba(4,6,5,.9)),
+    url('/assets/img/hero-home-stadium-night.png') center/cover}
+.home-hero__glass{padding:44px 32px;max-width:620px}
+.home-hero .eyebrow{color:var(--df-green-500);margin-bottom:10px}
+.home-hero h1{font-family:var(--font-team);font-weight:400;text-transform:uppercase;
+  font-size:clamp(2.4rem,5vw,3.6rem);line-height:.98;letter-spacing:.02em;margin:0 0 4px}
+.home-hero h1 span{color:var(--df-green-500);text-shadow:var(--pro-glow-soft)}
+.home-hero p{color:var(--df-silver);max-width:44ch;margin:12px 0 22px;line-height:1.5}
+.home-hero__cta{display:flex;flex-wrap:wrap;gap:12px}
+
+.home-tiles{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px}
+.home-tile{min-height:150px;padding:22px;display:flex;flex-direction:column;justify-content:end;
+  text-decoration:none;transition:transform .12s ease,box-shadow .12s ease}
+.home-tile:hover{transform:translateY(-2px);box-shadow:0 18px 44px rgba(0,0,0,.5),inset 0 0 0 1px rgba(22,163,74,.4)}
+.home-tile .eyebrow{color:var(--df-green-500)}
+.home-tile h2{font-family:var(--font-display);font-weight:700;text-transform:uppercase;
+  font-size:1.9rem;line-height:1;margin:4px 0 0}
+
+.home-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:20px}
+
+@media (max-width:640px){
+  .home-hero__glass{padding:28px 20px}
+  .home-tiles{grid-template-columns:1fr 1fr}
+  .home-tiles a:first-child{grid-column:1 / -1}
+  .home-tile{min-height:110px}
+}

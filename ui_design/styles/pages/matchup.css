@@ -1,0 +1,2 @@
+.score-hero{display:grid;grid-template-columns:1fr 170px 1fr;align-items:center;text-align:center;padding:28px}
+.score-hero__vs{font:800 4rem var(--font-display)}.comparison-bar{height:18px;background:#38423c;border-radius:999px;overflow:hidden}.comparison-bar span{display:block;width:57%;height:100%;background:linear-gradient(90deg,#0b8f46,#30db73)}

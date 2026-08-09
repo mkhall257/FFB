@@ -1,0 +1,9 @@
+/* ================================================================
+   Standings — broadcast table. Loaded on top of app.css.
+   ================================================================ */
+.st-table td{font-size:1rem}
+.st-table td:first-child{width:64px;text-align:center;color:var(--df-muted);font-weight:700}
+.st-table td:last-child,.st-table th:last-child{text-align:right;font-family:var(--font-stat);font-weight:800}
+.st-team{font-family:var(--font-team);font-weight:400;font-size:1.35rem;letter-spacing:.02em;color:var(--df-white)}
+.rank-1{background:linear-gradient(90deg,rgba(212,175,55,.10),rgba(22,163,74,.04));box-shadow:inset 3px 0 0 var(--df-gold)}
+.rank-badge{font:800 1.5rem var(--font-stat);color:var(--df-gold)}

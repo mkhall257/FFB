@@ -1,0 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap');
+
+html { font-size:16px; }
+body { font-family:var(--font-ui); color:var(--df-white); line-height:1.5; }
+h1,h2,h3,.display { font-family:var(--font-display); text-transform:uppercase; letter-spacing:.02em; margin:0; }
+h1 { font-size:clamp(3rem,4.4vw,5rem); line-height:1.02; font-weight:700; }
+h2 { font-size:2.4rem; line-height:1.1; font-weight:600; }
+h3 { font-size:1.35rem; line-height:1.2; font-weight:600; }
+.eyebrow { font:700 .78rem var(--font-ui); text-transform:uppercase; letter-spacing:.16em; color:var(--df-green-500); }
+.stat { font:800 2.8rem var(--font-stat); line-height:1; }
+.stat--xl { font-size:4.5rem; }
+.label { font:700 .75rem var(--font-ui); text-transform:uppercase; letter-spacing:.08em; color:var(--df-muted); }

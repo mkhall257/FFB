@@ -1,0 +1,1 @@
+.draft-shell{display:grid;grid-template-columns:220px minmax(0,1fr) 300px;gap:20px}.draft-clock{text-align:center;padding:18px}.draft-clock .stat{color:#2de06f}.queue-list{display:grid;gap:8px}.queue-item{padding:10px;border:1px solid var(--df-border);border-radius:6px}

@@ -1,0 +1,74 @@
+{
+  "kit_name": "Dragon Fantasy Football UI Kit",
+  "version": "0.1",
+  "target": "desktop web",
+  "primary_viewport": 1440,
+  "pages": [
+    {
+      "id": "01",
+      "name": "Home / Landing",
+      "example": "examples/01-home.html",
+      "layout": null
+    },
+    {
+      "id": "02",
+      "name": "Dashboard",
+      "example": "examples/02-dashboard.html",
+      "layout": null
+    },
+    {
+      "id": "03",
+      "name": "Matchup",
+      "example": "examples/03-matchup.html",
+      "layout": null
+    },
+    {
+      "id": "04",
+      "name": "Standings",
+      "example": "examples/04-standings.html",
+      "layout": null
+    },
+    {
+      "id": "05",
+      "name": "Draft Room",
+      "example": "examples/05-draft.html",
+      "layout": null
+    },
+    {
+      "id": "06",
+      "name": "Roster / My Team",
+      "example": "examples/06-roster.html",
+      "layout": null
+    },
+    {
+      "id": "07",
+      "name": "League Chat",
+      "example": "examples/07-chat.html",
+      "layout": null
+    },
+    {
+      "id": "08",
+      "name": "Weekly Recap / News",
+      "example": "examples/08-recap.html",
+      "layout": null
+    },
+    {
+      "id": "09",
+      "name": "Commissioner Dashboard",
+      "example": "examples/09-commissioner.html",
+      "layout": null
+    },
+    {
+      "id": "10",
+      "name": "Champions / Awards",
+      "example": "examples/10-awards.html",
+      "layout": null
+    }
+  ],
+  "fonts": [
+    "Oswald",
+    "Barlow Condensed",
+    "Inter"
+  ],
+  "trademark_policy": "No Carroll ISD logos, copied dragon marks, or official wordmarks included."
+}

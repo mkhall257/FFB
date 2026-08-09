@@ -1,0 +1,42 @@
+[
+  {
+    "file": "overlays/01_overlay_stadium_lights.png",
+    "source": "/mnt/data/ghostwriter_images/generated/a_digital_illustration_features_a_dramatic_stadium_1_batch_1.png"
+  },
+  {
+    "file": "overlays/02_overlay_green_smoke.png",
+    "source": "/mnt/data/ghostwriter_images/generated/a_digital_illustration_of_swirling_emerald_green_s_2_batch_2.png"
+  },
+  {
+    "file": "overlays/03_overlay_gold_green_confetti.png",
+    "source": "/mnt/data/gold_and_green_confetti_cascade.png"
+  },
+  {
+    "file": "overlays/04_overlay_neon_speed_streaks.png",
+    "source": "/mnt/data/neon_green_converging_light_streaks.png"
+  },
+  {
+    "file": "overlays/05_overlay_light_bursts_bokeh.png",
+    "source": "/mnt/data/green_and_white_sports_light_bursts.png"
+  },
+  {
+    "file": "decorative/06_decorative_claw_slashes.png",
+    "source": "/mnt/data/emerald_claw_slashes_through_darkness.png"
+  },
+  {
+    "file": "decorative/07_decorative_corner_chevrons.png",
+    "source": "/mnt/data/neon_green_futuristic_corner_overlays.png"
+  },
+  {
+    "file": "decorative/08_decorative_halftone_particles.png",
+    "source": "/mnt/data/ghostwriter_images/generated/a_digital_graphic_overlay_image_features_green_hal_8_batch_8.png"
+  },
+  {
+    "file": "decorative/09_decorative_sparks_energy.png",
+    "source": "/mnt/data/ghostwriter_images/generated/a_digital_overlay_overlay_consists_of_glowing_gree_9_batch_9.png"
+  },
+  {
+    "file": "decorative/10_decorative_shield_panel.png",
+    "source": "/mnt/data/futuristic_emerald_shield_ui_panel.png"
+  }
+]

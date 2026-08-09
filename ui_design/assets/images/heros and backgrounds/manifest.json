@@ -1,0 +1,72 @@
+[
+  {
+    "file": "heroes/01_hero_stadium_dragon_smoke.png",
+    "size": [
+      1920,
+      1011
+    ]
+  },
+  {
+    "file": "heroes/02_hero_player_dragon_energy.png",
+    "size": [
+      1920,
+      979
+    ]
+  },
+  {
+    "file": "heroes/03_hero_helmet_friday_night_lights.png",
+    "size": [
+      1920,
+      1009
+    ]
+  },
+  {
+    "file": "heroes/04_hero_throne_awaits.png",
+    "size": [
+      1920,
+      707
+    ]
+  },
+  {
+    "file": "heroes/05_hero_champions_goal.png",
+    "size": [
+      1920,
+      823
+    ]
+  },
+  {
+    "file": "backgrounds/01_bg_stadium_night.png",
+    "size": [
+      1600,
+      1074
+    ]
+  },
+  {
+    "file": "backgrounds/02_bg_dragon_clouds.png",
+    "size": [
+      1600,
+      1326
+    ]
+  },
+  {
+    "file": "backgrounds/03_bg_dragon_scales.png",
+    "size": [
+      1600,
+      1326
+    ]
+  },
+  {
+    "file": "backgrounds/04_bg_locker_room.png",
+    "size": [
+      1600,
+      1278
+    ]
+  },
+  {
+    "file": "backgrounds/05_bg_smoke_green.png",
+    "size": [
+      1600,
+      1147
+    ]
+  }
+]
