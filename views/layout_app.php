@@ -41,6 +41,7 @@ $menu = [
     'Trades' => ['/trades', 'trades'],
     'Activity' => ['/transactions', 'transactions'],
     'Draft Room' => ['/draft', 'draft'],
+    'My Profile' => ['/profile', 'profile'],
 ];
 
 /** Commissioner-only drawer section. */

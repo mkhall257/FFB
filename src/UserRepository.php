@@ -89,6 +89,15 @@ final class UserRepository
     }
 
     /**
+     * Update a user's display name.
+     */
+    public function updateDisplayName(int $userId, string $displayName): void
+    {
+        $stmt = $this->pdo->prepare('UPDATE users SET display_name = ? WHERE id = ?');
+        $stmt->execute([$displayName, $userId]);
+    }
+
+    /**
      * Activate or deactivate a user. Scoped to a League as a safety check.
      */
     public function setActive(int $leagueId, int $userId, bool $active): void

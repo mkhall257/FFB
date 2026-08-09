@@ -13,6 +13,7 @@ use FFB\Controllers\LoginController;
 use FFB\Controllers\PlayerAdminController;
 use FFB\Controllers\PlayersController;
 use FFB\Controllers\PlayoffsController;
+use FFB\Controllers\ProfileController;
 use FFB\Controllers\RosterAdminController;
 use FFB\Controllers\ScoreboardController;
 use FFB\Controllers\SeasonController;
@@ -66,6 +67,7 @@ final class Kernel
 
         $login = new LoginController($auth, $leagues, $view);
         $home = new HomeController($teams, $transactionLedger, $leagues, $view);
+        $profile = new ProfileController($users, $leagues, $view);
         $admin = new AdminController($pdo, $teams, $users, $leagues, $view);
         $playerAdmin = new PlayerAdminController($players, $syncLog, $view);
         $autoPick = new AutoPickStrategy($draftQueues, $draftPicks, $players);
@@ -97,6 +99,8 @@ final class Kernel
         $router->post('/login', [$login, 'submit']);
         $router->post('/logout', [$login, 'logout'], 'authenticated');
         $router->get('/', [$home, 'index'], 'authenticated');
+        $router->get('/profile', [$profile, 'show'], 'authenticated');
+        $router->post('/profile', [$profile, 'update'], 'authenticated');
         $router->get('/standings', [$standings, 'index'], 'authenticated');
         $router->get('/scoreboard', [$scoreboard, 'index'], 'authenticated');
         $router->get('/lineup', [$lineup, 'index'], 'authenticated');
@@ -116,6 +120,8 @@ final class Kernel
         $router->post('/admin/managers', [$admin, 'createManager'], 'commissioner');
         $router->post('/admin/managers/reset', [$admin, 'resetPassword'], 'commissioner');
         $router->post('/admin/managers/status', [$admin, 'setManagerStatus'], 'commissioner');
+        $router->post('/admin/teams/status', [$admin, 'setTeamStatus'], 'commissioner');
+        $router->post('/admin/teams/delete', [$admin, 'deleteTeam'], 'commissioner');
         $router->get('/admin/unmatched-players', [$playerAdmin, 'unmatched'], 'commissioner');
         $router->post('/admin/transactions/reverse', [$transactionsPage, 'reverse'], 'commissioner');
         $router->get('/admin/roster-edit', [$rosterAdmin, 'index'], 'commissioner');

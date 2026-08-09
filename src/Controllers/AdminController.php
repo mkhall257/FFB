@@ -130,6 +130,49 @@ final class AdminController
         return Response::redirect('/admin');
     }
 
+    public function setTeamStatus(Request $request, Session $session): Response
+    {
+        $leagueId = $this->leagues->currentLeagueId();
+        $seasonId = $this->leagues->currentSeasonId();
+        $teamId = (int) $request->input('team_id', '0');
+        $active = $request->input('active', '0') === '1';
+
+        $team = $this->teams->find($leagueId, $seasonId, $teamId);
+        if ($team === null) {
+            return $this->renderIndex(null, 'Unknown team.', 400);
+        }
+
+        $this->teams->setActive($leagueId, $seasonId, $teamId, $active);
+        $verb = $active ? 'Reactivated' : 'Deactivated';
+        $session->set('flash', "{$verb} team \"{$team['name']}\".");
+
+        return Response::redirect('/admin');
+    }
+
+    public function deleteTeam(Request $request, Session $session): Response
+    {
+        $leagueId = $this->leagues->currentLeagueId();
+        $seasonId = $this->leagues->currentSeasonId();
+        $teamId = (int) $request->input('team_id', '0');
+
+        $team = $this->teams->find($leagueId, $seasonId, $teamId);
+        if ($team === null) {
+            return $this->renderIndex(null, 'Unknown team.', 400);
+        }
+        if (!$this->teams->isDeletable($teamId)) {
+            return $this->renderIndex(
+                null,
+                "\"{$team['name']}\" has league history (draft, roster, matchups or trades) and can't be deleted — deactivate it instead.",
+                400,
+            );
+        }
+
+        $this->teams->delete($leagueId, $seasonId, $teamId);
+        $session->set('flash', "Deleted team \"{$team['name']}\".");
+
+        return Response::redirect('/admin');
+    }
+
     public function setManagerStatus(Request $request, Session $session): Response
     {
         $leagueId = $this->leagues->currentLeagueId();

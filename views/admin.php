@@ -2,7 +2,7 @@
 /**
  * Commissioner Team & Manager management.
  *
- * @var list<array<string,mixed>> $teams  each: team_id, team_name, user_id, username, display_name, is_active
+ * @var list<array<string,mixed>> $teams  each: team_id, team_name, user_id, team_active, username, display_name, is_active
  * @var string|null $flash
  * @var string|null $error
  */
@@ -21,14 +21,16 @@ $unassigned = array_filter($teams, static fn (array $t): bool => $t['user_id'] =
 <h2>Teams</h2>
 <table>
     <thead>
-        <tr><th>Team</th><th>Manager</th><th>Username</th><th>Status</th><th>Actions</th></tr>
+        <tr><th>Team</th><th>Manager</th><th>Username</th><th>Team status</th><th>Manager status</th><th>Actions</th></tr>
     </thead>
     <tbody>
     <?php foreach ($teams as $t): ?>
+        <?php $teamActive = ((int) $t['team_active']) === 1; ?>
         <tr>
             <td><?= e((string) $t['team_name']) ?></td>
             <td><?= e($t['display_name'] !== null ? (string) $t['display_name'] : '—') ?></td>
             <td><?= e($t['username'] !== null ? (string) $t['username'] : '—') ?></td>
+            <td><?= $teamActive ? 'active' : 'inactive' ?></td>
             <td>
                 <?php if ($t['user_id'] === null): ?>
                     no manager
@@ -37,6 +39,15 @@ $unassigned = array_filter($teams, static fn (array $t): bool => $t['user_id'] =
                 <?php endif; ?>
             </td>
             <td>
+                <form method="post" action="/admin/teams/status">
+                    <input type="hidden" name="team_id" value="<?= (int) $t['team_id'] ?>">
+                    <input type="hidden" name="active" value="<?= $teamActive ? '0' : '1' ?>">
+                    <button type="submit"><?= $teamActive ? 'Deactivate team' : 'Reactivate team' ?></button>
+                </form>
+                <form method="post" action="/admin/teams/delete" onsubmit="return confirm('Permanently delete this team? This only works if it has no league history.');">
+                    <input type="hidden" name="team_id" value="<?= (int) $t['team_id'] ?>">
+                    <button type="submit">Delete team</button>
+                </form>
                 <?php if ($t['user_id'] !== null): ?>
                     <form method="post" action="/admin/managers/reset">
                         <input type="hidden" name="user_id" value="<?= (int) $t['user_id'] ?>">
@@ -47,10 +58,10 @@ $unassigned = array_filter($teams, static fn (array $t): bool => $t['user_id'] =
                         <input type="hidden" name="user_id" value="<?= (int) $t['user_id'] ?>">
                         <?php if (((int) $t['is_active']) === 1): ?>
                             <input type="hidden" name="active" value="0">
-                            <button type="submit">Deactivate</button>
+                            <button type="submit">Deactivate manager</button>
                         <?php else: ?>
                             <input type="hidden" name="active" value="1">
-                            <button type="submit">Reactivate</button>
+                            <button type="submit">Reactivate manager</button>
                         <?php endif; ?>
                     </form>
                 <?php endif; ?>
@@ -58,7 +69,7 @@ $unassigned = array_filter($teams, static fn (array $t): bool => $t['user_id'] =
         </tr>
     <?php endforeach; ?>
     <?php if ($teams === []): ?>
-        <tr><td colspan="5">No teams yet.</td></tr>
+        <tr><td colspan="6">No teams yet.</td></tr>
     <?php endif; ?>
     </tbody>
 </table>

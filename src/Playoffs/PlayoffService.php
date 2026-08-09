@@ -437,7 +437,7 @@ final class PlayoffService
             $order[] = (int) $row['team_id'];
         }
 
-        foreach ($this->teams->idsForSeason($leagueId, $seasonId) as $teamId) {
+        foreach ($this->teams->activeIdsForSeason($leagueId, $seasonId) as $teamId) {
             if (!in_array($teamId, $order, true)) {
                 $order[] = $teamId;
             }

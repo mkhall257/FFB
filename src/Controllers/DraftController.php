@@ -133,7 +133,7 @@ final class DraftController
             return $this->renderSetup(null, 'The draft order is locked once the Draft is finalized.', 409);
         }
 
-        $ids = $this->teams->idsForSeason($leagueId, $seasonId);
+        $ids = $this->teams->activeIdsForSeason($leagueId, $seasonId);
         if (count($ids) < self::MIN_TEAMS) {
             return $this->renderSetup(null, 'Add at least two teams before setting the draft order.', 400);
         }
@@ -157,7 +157,7 @@ final class DraftController
 
         $submitted = $request->post['team_ids'] ?? [];
         $submitted = is_array($submitted) ? array_map(intval(...), $submitted) : [];
-        $seasonIds = $this->teams->idsForSeason($leagueId, $seasonId);
+        $seasonIds = $this->teams->activeIdsForSeason($leagueId, $seasonId);
 
         if (!$this->isPermutation($submitted, $seasonIds)) {
             return $this->renderSetup(null, 'The order must list every team exactly once.', 400);
@@ -180,7 +180,7 @@ final class DraftController
         }
 
         $order = $this->drafts->orderTeamIds((int) $draft['id']);
-        $seasonIds = $this->teams->idsForSeason($leagueId, $seasonId);
+        $seasonIds = $this->teams->activeIdsForSeason($leagueId, $seasonId);
 
         if ($order === [] || count($order) !== count($seasonIds)) {
             return $this->renderSetup(
@@ -463,7 +463,10 @@ final class DraftController
                 'draft' => $draft,
                 'settings' => $this->settings->all($leagueId, $seasonId),
                 'order' => $draft !== null ? $this->drafts->order((int) $draft['id']) : [],
-                'teams' => $this->teams->listWithManagers($leagueId, $seasonId),
+                'teams' => array_values(array_filter(
+                    $this->teams->listWithManagers($leagueId, $seasonId),
+                    static fn (array $t): bool => ((int) $t['team_active']) === 1,
+                )),
                 'flash' => $flash,
                 'error' => $error,
             ], '', '', 'layout_app'),

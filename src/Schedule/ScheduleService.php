@@ -25,7 +25,7 @@ final class ScheduleService
 
     public function generateForSeason(int $leagueId, int $seasonId): void
     {
-        $teamIds = $this->teams->idsForSeason($leagueId, $seasonId);
+        $teamIds = $this->teams->activeIdsForSeason($leagueId, $seasonId);
         $settings = $this->settings->all($leagueId, $seasonId);
         $weeks = (int) ($settings['schedule.regular_season_weeks'] ?? 14);
 
