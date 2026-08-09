@@ -11,8 +11,21 @@ namespace FFB;
  */
 final class View
 {
+    private ?string $userRole = null;
+    private ?string $userName = null;
+
     public function __construct(private readonly string $dir)
     {
+    }
+
+    /**
+     * Record the signed-in user for the shared page chrome (navigation menu,
+     * commissioner links, logout). Null role means anonymous.
+     */
+    public function setCurrentUser(?string $role, ?string $name): void
+    {
+        $this->userRole = $role;
+        $this->userName = $name;
     }
 
     /**
@@ -56,6 +69,8 @@ final class View
             'content' => $content,
             'active' => $active,
             'pageCss' => $pageCss,
+            'navRole' => $this->userRole,
+            'navName' => $this->userName,
         ]);
     }
 }

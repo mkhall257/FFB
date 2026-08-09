@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace FFB\Http;
 
+use FFB\View;
+
 /**
  * Maps (method, path) to a handler and enforces the role gate before the
  * handler runs.
@@ -22,6 +24,11 @@ final class Router
 {
     /** @var list<array{method:string,path:string,handler:callable,role:?string}> */
     private array $routes = [];
+
+    /** Optional shared View, populated with the current user for the page chrome. */
+    public function __construct(private readonly ?View $view = null)
+    {
+    }
 
     public function get(string $path, callable $handler, ?string $role = null): void
     {
@@ -45,6 +52,13 @@ final class Router
 
     public function dispatch(Request $request, Session $session): Response
     {
+        $role = $session->get('role');
+        $name = $session->get('display_name');
+        $this->view?->setCurrentUser(
+            is_string($role) ? $role : null,
+            is_string($name) ? $name : null,
+        );
+
         $pathMatched = false;
 
         foreach ($this->routes as $route) {

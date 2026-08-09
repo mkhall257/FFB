@@ -92,7 +92,7 @@ final class Kernel
         );
         $playoffsPage = new PlayoffsController($playoffService, $leagues, $view);
 
-        $router = new Router();
+        $router = new Router($view);
         $router->get('/login', [$login, 'show']);
         $router->post('/login', [$login, 'submit']);
         $router->post('/logout', [$login, 'logout'], 'authenticated');
