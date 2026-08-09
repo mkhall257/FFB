@@ -84,18 +84,38 @@ $rounds = $starters + $slot('bench');
 
     <?php if ($teams !== []): ?>
         <form method="post" action="/admin/draft/order" style="margin-top:1rem">
-            <p>Manual order (top to bottom):</p>
+            <p>Manual order (top to bottom). Each team appears exactly once — picking a team that's already used swaps the two rows.</p>
             <?php foreach ($teams as $i => $t): ?>
                 <label style="display:block; margin-bottom:0.35rem"><?= (int) $i + 1 ?>.
-                    <select name="team_ids[]">
+                    <select name="team_ids[]" class="order-select">
                         <?php foreach ($teams as $opt): ?>
-                            <option value="<?= (int) $opt['team_id'] ?>"><?= e((string) $opt['team_name']) ?></option>
+                            <option value="<?= (int) $opt['team_id'] ?>"<?= (int) $opt['team_id'] === (int) $t['team_id'] ? ' selected' : '' ?>><?= e((string) $opt['team_name']) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </label>
             <?php endforeach; ?>
             <button type="submit">Save manual order</button>
         </form>
+        <script>
+        (function () {
+            var selects = Array.prototype.slice.call(document.querySelectorAll('select.order-select'));
+            if (selects.length < 2) { return; }
+            selects.forEach(function (s) { s.dataset.prev = s.value; });
+            selects.forEach(function (s) {
+                s.addEventListener('change', function () {
+                    var picked = s.value, previous = s.dataset.prev;
+                    // Whichever other row already holds the picked team inherits this row's old team.
+                    selects.forEach(function (other) {
+                        if (other !== s && other.value === picked) {
+                            other.value = previous;
+                            other.dataset.prev = previous;
+                        }
+                    });
+                    s.dataset.prev = picked;
+                });
+            });
+        })();
+        </script>
     <?php endif; ?>
 
     <form method="post" action="/admin/draft/finalize" style="margin-top:1.5rem">
