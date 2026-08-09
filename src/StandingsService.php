@@ -22,9 +22,12 @@ final class StandingsService
      */
     public function compute(int $seasonId): array
     {
+        // Only regular-season Matchups (round IS NULL) count. Playoff games are
+        // round-tagged and excluded, so Standings freeze once the regular season
+        // ends — the bracket is a separate competition.
         $stmt = $this->pdo->prepare(
             'SELECT home_team_id, away_team_id, home_score, away_score'
-            . " FROM matchups WHERE season_id = ? AND status = 'final'"
+            . " FROM matchups WHERE season_id = ? AND status = 'final' AND round IS NULL"
         );
         $stmt->execute([$seasonId]);
 

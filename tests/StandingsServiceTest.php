@@ -72,6 +72,34 @@ final class StandingsServiceTest extends DatabaseTestCase
         $this->assertSame($b, $rows[1]['team_id']);
     }
 
+    public function testPlayoffGamesDoNotCountTowardStandings(): void
+    {
+        $a = $this->team('A');
+        $b = $this->team('B');
+
+        // Regular-season result (round IS NULL) counts.
+        $this->finalMatchup(1, $a, $b, 100, 90);
+
+        // A final PLAYOFF game (round set) must not touch regular-season standings —
+        // standings freeze at the end of the regular season; the bracket is separate.
+        $this->pdo->prepare(
+            'INSERT INTO matchups (league_id, season_id, week, round, home_team_id, away_team_id, home_score, away_score, status)'
+            . " VALUES (?,?,?,1,?,?,?,?,'final')"
+        )->execute([$this->leagueId, $this->seasonId, 4, $b, $a, 130, 60]);
+
+        $rows = (new StandingsService($this->pdo))->compute($this->seasonId);
+
+        // A stays 1-0 (the playoff loss is ignored); B stays 0-1 (the playoff win is ignored).
+        $this->assertSame($a, $rows[0]['team_id']);
+        $this->assertSame(1, $rows[0]['wins']);
+        $this->assertSame(0, $rows[0]['losses']);
+        $this->assertSame($b, $rows[1]['team_id']);
+        $this->assertSame(0, $rows[1]['wins']);
+        $this->assertSame(1, $rows[1]['losses']);
+        // Points-for reflects only the regular-season game, not the 60 from the playoff.
+        $this->assertSame(100.0, $rows[0]['points_for']);
+    }
+
     public function testOnlyFinalMatchupsCount(): void
     {
         $a = $this->team('A');
