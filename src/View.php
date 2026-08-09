@@ -39,7 +39,7 @@ final class View
      * @param array<string,mixed> $data
      * @param string $active  Nav key to mark active in the layout (e.g. 'home'); '' for none.
      * @param string $pageCss Page stylesheet basename under public/assets/css/pages/; '' for none.
-     * @param string $layout  Layout template to wrap the content in (default 'layout').
+     * @param string $layout  Layout template to wrap the content in (default 'layout_app').
      */
     public function page(
         string $template,
@@ -47,7 +47,7 @@ final class View
         array $data = [],
         string $active = '',
         string $pageCss = '',
-        string $layout = 'layout',
+        string $layout = 'layout_app',
     ): string {
         $content = $this->render($template, $data);
 
