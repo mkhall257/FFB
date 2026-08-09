@@ -87,7 +87,7 @@ final class LineupController
                 $this->view->page('lineup', 'My Lineup', [
                     'hasTeam' => false, 'week' => 0, 'slots' => [], 'roster' => [],
                     'locked' => false, 'error' => 'You do not manage a team.', 'flash' => null,
-                ]),
+                ], 'lineup', '', 'layout_app'),
                 403,
             );
         }
@@ -118,7 +118,7 @@ final class LineupController
                 'locked' => $this->lineups->isLocked($leagueId, $seasonId, $week),
                 'error' => $error,
                 'flash' => $flashOverride ?? (is_string($flash) ? $flash : null),
-            ]),
+            ], 'lineup', '', 'layout_app'),
             $status,
         );
     }

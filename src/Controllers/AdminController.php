@@ -160,7 +160,7 @@ final class AdminController
                 'teams' => $teams,
                 'flash' => $flash,
                 'error' => $error,
-            ]),
+            ], '', '', 'layout_app'),
             $status,
         );
     }

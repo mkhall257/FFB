@@ -99,7 +99,7 @@ final class PlayersController
                 'position' => is_string($position) ? $position : '',
                 'error' => $error,
                 'flash' => $error === null && is_string($flash) ? $flash : null,
-            ]),
+            ], '', '', 'layout_app'),
             $status,
         );
     }

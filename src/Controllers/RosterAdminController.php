@@ -81,7 +81,7 @@ final class RosterAdminController
                 'freeAgents' => $this->players->availableForSeason($seasonId, null, null, 100),
                 'error' => $error,
                 'flash' => $error === null && is_string($flash) ? $flash : null,
-            ]),
+            ], '', '', 'layout_app'),
             $status,
         );
     }

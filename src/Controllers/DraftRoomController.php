@@ -216,7 +216,7 @@ final class DraftRoomController
                 'order' => $order,
                 'flash' => $flash,
                 'error' => $error,
-            ]),
+            ], '', '', 'layout_app'),
             $status,
         );
     }

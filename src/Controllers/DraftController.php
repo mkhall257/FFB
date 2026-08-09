@@ -466,7 +466,7 @@ final class DraftController
                 'teams' => $this->teams->listWithManagers($leagueId, $seasonId),
                 'flash' => $flash,
                 'error' => $error,
-            ]),
+            ], '', '', 'layout_app'),
             $status,
         );
     }

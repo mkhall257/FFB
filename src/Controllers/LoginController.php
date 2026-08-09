@@ -25,7 +25,7 @@ final class LoginController
 
     public function show(Request $request, Session $session): Response
     {
-        return Response::html($this->view->page('login', 'Log in', ['error' => null]));
+        return Response::html($this->view->page('login', 'Log in', ['error' => null], '', '', 'layout_app'));
     }
 
     public function submit(Request $request, Session $session): Response
@@ -41,7 +41,7 @@ final class LoginController
         }
 
         return Response::html(
-            $this->view->page('login', 'Log in', ['error' => 'Incorrect username or password.']),
+            $this->view->page('login', 'Log in', ['error' => 'Incorrect username or password.'], '', '', 'layout_app'),
             401,
         );
     }

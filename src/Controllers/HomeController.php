@@ -43,6 +43,6 @@ final class HomeController
             'displayName' => (string) $session->get('display_name', ''),
             'role' => (string) $session->get('role', ''),
             'incomingOffers' => $incoming,
-        ]));
+        ], 'home', 'home', 'layout_app'));
     }
 }

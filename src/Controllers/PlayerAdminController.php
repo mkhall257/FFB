@@ -31,6 +31,6 @@ final class PlayerAdminController
             'playerCount' => $this->players->count(),
             'linkedCount' => $this->players->linkedCount(),
             'lastSync' => $this->syncLog->latest(),
-        ]));
+        ], '', '', 'layout_app'));
     }
 }

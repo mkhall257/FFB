@@ -36,7 +36,7 @@ final class PlayoffsController
         );
 
         return Response::html(
-            $this->view->page('playoffs', 'Playoffs', ['bracket' => $bracket]),
+            $this->view->page('playoffs', 'Playoffs', ['bracket' => $bracket], 'playoffs', '', 'layout_app'),
         );
     }
 

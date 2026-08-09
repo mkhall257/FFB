@@ -68,7 +68,7 @@ final class TransactionsController
                 'isCommissioner' => $session->get('role') === 'commissioner',
                 'flash' => $flash,
                 'error' => $error,
-            ]),
+            ], '', '', 'layout_app'),
             $status,
         );
     }

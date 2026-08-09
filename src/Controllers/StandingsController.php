@@ -34,6 +34,6 @@ final class StandingsController
         return Response::html($this->view->page('standings', 'Standings', [
             'rows' => $this->standings->compute($seasonId),
             'names' => $this->teams->namesForSeason($leagueId, $seasonId),
-        ]));
+        ], 'standings', 'standings', 'layout_app'));
     }
 }

@@ -186,7 +186,7 @@ final class SeasonController
                 'roster' => $roster,
                 'flash' => $flash,
                 'error' => $error,
-            ]),
+            ], '', '', 'layout_app'),
             $status,
         );
     }

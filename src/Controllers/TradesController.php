@@ -138,7 +138,7 @@ final class TradesController
                 'otherTeams' => $otherTeams,
                 'error' => $error,
                 'flash' => $error === null && is_string($flash) ? $flash : null,
-            ]),
+            ], '', '', 'layout_app'),
             $status,
         );
     }
