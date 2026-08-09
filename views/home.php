@@ -20,15 +20,15 @@
 </section>
 
 <div class="home-tiles">
-    <a class="panel home-tile" href="/scoreboard">
+    <a class="panel home-tile home-tile--matchups" href="/scoreboard">
         <div class="eyebrow">This week</div>
         <h2>Matchups</h2>
     </a>
-    <a class="panel home-tile" href="/standings">
+    <a class="panel home-tile home-tile--standings" href="/standings">
         <div class="eyebrow">League</div>
         <h2>Standings</h2>
     </a>
-    <a class="panel home-tile" href="/playoffs">
+    <a class="panel home-tile home-tile--playoffs" href="/playoffs">
         <div class="eyebrow">Postseason</div>
         <h2>Playoffs</h2>
     </a>

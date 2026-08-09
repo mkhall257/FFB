@@ -15,12 +15,31 @@
 .home-hero__cta{display:flex;flex-wrap:wrap;gap:12px}
 
 .home-tiles{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px}
-.home-tile{min-height:150px;padding:22px;display:flex;flex-direction:column;justify-content:end;
+.home-tile{position:relative;overflow:hidden;min-height:150px;padding:22px;
+  display:flex;flex-direction:column;justify-content:end;
+  background-size:cover;background-repeat:no-repeat;
   text-decoration:none;transition:transform .12s ease,box-shadow .12s ease}
+/* Dark scrim so the label stays legible over the texture */
+.home-tile::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(6,9,7,.35),rgba(5,8,6,.9)),
+    linear-gradient(75deg,rgba(5,8,6,.8) 18%,rgba(5,8,6,.1))}
+.home-tile > *{position:relative}
 .home-tile:hover{transform:translateY(-2px);box-shadow:0 18px 44px rgba(0,0,0,.5),inset 0 0 0 1px rgba(22,163,74,.4)}
+.home-tile:hover::before{background:linear-gradient(180deg,rgba(6,9,7,.25),rgba(5,8,6,.82)),
+    linear-gradient(75deg,rgba(5,8,6,.72) 18%,rgba(5,8,6,.05))}
 .home-tile .eyebrow{color:var(--df-green-500)}
 .home-tile h2{font-family:var(--font-display);font-weight:700;text-transform:uppercase;
   font-size:1.9rem;line-height:1;margin:4px 0 0}
+
+/* Matchups: CSS-drawn field — yard lines + end-zone glow (stadium/smoke are already
+   used by the hero and page background, so this tile gets a distinct texture). */
+.home-tile--matchups{background-color:#0a1710;
+  background-image:
+    repeating-linear-gradient(90deg,rgba(255,255,255,.09) 0 2px,transparent 2px 52px),
+    radial-gradient(85% 120% at 12% -12%,rgba(22,163,74,.5),transparent 55%),
+    radial-gradient(130% 90% at 50% 128%,rgba(22,163,74,.35),transparent 62%)}
+.home-tile--standings{background-image:url('/assets/img/crest-shadow.png');background-position:right center}
+.home-tile--playoffs{background-image:url('/assets/img/crest-roaring.png');background-position:right center}
 
 .home-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:20px}
 
