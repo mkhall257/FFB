@@ -137,6 +137,23 @@ final class TransactionTradeHttpTest extends DatabaseTestCase
         $this->assertSame(0, (int) $this->pdo->query("SELECT COUNT(*) FROM transactions WHERE type='trade'")->fetchColumn());
     }
 
+    public function testTradesPageBeforeDraftExplainsTradingIsClosed(): void
+    {
+        [, $ua] = $this->team('Sharks', 'sharks');
+        [$b] = $this->team('Bears', 'bears');
+
+        // Roll the draft back to pre-complete: trading is not open yet.
+        $this->pdo->prepare("UPDATE drafts SET state = 'setup' WHERE season_id = ?")
+            ->execute([$this->seasonId]);
+
+        $page = $this->dispatch($ua, 'GET', '/trades');
+
+        $this->assertStringContainsString('Trading opens once the draft is complete', $page->body);
+        // The propose builder — and any bare "other team" header — must not render.
+        $this->assertStringNotContainsString('Propose trade', $page->body);
+        $this->assertStringNotContainsString('Bears', $page->body);
+    }
+
     // --- helpers ---
 
     /** @return array{0:int,1:int} */

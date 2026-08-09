@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace FFB\Controllers;
 
+use FFB\DraftRepository;
 use FFB\Http\Request;
 use FFB\Http\Response;
 use FFB\Http\Session;
@@ -27,6 +28,7 @@ final class TradesController
         private readonly TransactionRepository $ledger,
         private readonly RosterRepository $rosters,
         private readonly TeamRepository $teams,
+        private readonly DraftRepository $drafts,
         private readonly LeagueRepository $leagues,
         private readonly View $view,
     ) {
@@ -116,12 +118,19 @@ final class TradesController
             }
         }
 
+        // Trades open only once the Draft is complete and Rosters exist; mirror
+        // the service's own gate (assertTransactionsOpen) so the page explains the
+        // pre-draft state instead of rendering empty team headers under "You get".
+        $draft = $this->drafts->find($leagueId, $seasonId);
+        $draftComplete = $draft !== null && ($draft['state'] ?? null) === 'complete';
+
         $rostersByTeam = $this->rosters->byTeam($seasonId);
         $otherTeams = [];
         if ($team !== null) {
             foreach ($this->teams->namesForSeason($leagueId, $seasonId) as $id => $name) {
-                if ($id !== $teamId) {
-                    $otherTeams[] = ['id' => $id, 'name' => $name, 'roster' => $rostersByTeam[$id] ?? []];
+                // Skip yourself and any Team with no rostered players (nothing to get).
+                if ($id !== $teamId && ($rostersByTeam[$id] ?? []) !== []) {
+                    $otherTeams[] = ['id' => $id, 'name' => $name, 'roster' => $rostersByTeam[$id]];
                 }
             }
         }
@@ -132,6 +141,7 @@ final class TradesController
         return Response::html(
             $this->view->page('trades', 'Trades', [
                 'hasTeam' => $team !== null,
+                'draftComplete' => $draftComplete,
                 'incoming' => $incoming,
                 'outgoing' => $outgoing,
                 'myRoster' => $team !== null ? ($rostersByTeam[$teamId] ?? []) : [],

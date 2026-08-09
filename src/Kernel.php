@@ -84,7 +84,7 @@ final class Kernel
         $season = new SeasonController($settings, $leagues, $view);
         $playersPage = new PlayersController($transactionService, $players, $rosters, $teams, $leagues, $view);
         $transactionsPage = new TransactionsController($transactionService, $transactionLedger, $leagues, $view);
-        $tradesPage = new TradesController($transactionService, $transactionLedger, $rosters, $teams, $leagues, $view);
+        $tradesPage = new TradesController($transactionService, $transactionLedger, $rosters, $teams, $drafts, $leagues, $view);
         $rosterAdmin = new RosterAdminController($transactionService, $rosters, $players, $teams, $leagues, $view);
         $matchupScoring = new MatchupScoringService(
             $matchups, $lineupRepo, new PlayerWeekStatsRepository($pdo), new ScoringEngine(), $settings,

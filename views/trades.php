@@ -3,6 +3,7 @@
  * Trade surface. Expects:
  *
  * @var bool $hasTeam
+ * @var bool $draftComplete   trades only open once the draft is complete
  * @var list<array<string,mixed>> $incoming   proposals made TO me (accept/reject)
  * @var list<array<string,mixed>> $outgoing   proposals I made (cancel)
  * @var list<array<string,mixed>> $myRoster   my players (player_id, full_name, position)
@@ -39,6 +40,9 @@ $sides = static function (array $txn): string {
 
 <?php if (!$hasTeam): ?>
     <p>You do not manage a team in this league.</p>
+<?php elseif (!$draftComplete): ?>
+    <p>Trading opens once the draft is complete. Teams don’t have any players to trade
+    yet — check back after your league has drafted.</p>
 <?php else: ?>
     <h2>Incoming offers</h2>
     <?php if ($incoming === []): ?>
