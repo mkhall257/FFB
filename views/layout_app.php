@@ -52,7 +52,7 @@ $tabs = [
     <div class="wrap">
         <div class="topbar">
             <a class="icnbtn" href="/" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></a>
-            <a class="wordmark" href="/"><b>DRAGON</b><span>FANTASY LEAGUE</span></a>
+            <a class="wordmark" href="/"><img src="/assets/img/logo-peak-dragon.png" alt="Peak Dragon Fantasy Football League"></a>
             <a class="icnbtn chatdot" href="/" aria-label="Chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></a>
         </div>
 
@@ -65,8 +65,8 @@ $tabs = [
 <?php if ($docWrap): ?><div class="doc"><?= $content ?></div><?php else: ?><?= $content ?><?php endif; ?>
 
         <div class="site-footer">
-            <div class="monogram">DF</div>
-            <span>DRAGON FANTASY LEAGUE</span>
+            <div class="monogram">PD</div>
+            <span>Peak Dragon Fantasy Football League</span>
         </div>
     </div>
 

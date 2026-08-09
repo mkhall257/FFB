@@ -34,9 +34,8 @@ a{color:inherit}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 4px 8px;gap:12px}
 .icnbtn{width:40px;height:40px;display:grid;place-items:center;color:var(--df-silver);background:none;border:0;cursor:pointer;text-decoration:none}
 .icnbtn svg{width:26px;height:26px}
-.wordmark{text-align:center;line-height:.9;text-decoration:none}
-.wordmark b{display:block;font-family:var(--font-display);font-weight:700;font-size:1.9rem;letter-spacing:.06em;text-shadow:var(--pro-glow-soft)}
-.wordmark span{display:block;font-family:var(--font-display);font-weight:600;font-size:.78rem;letter-spacing:.4em;color:var(--df-green-500);margin-top:2px}
+.wordmark{display:flex;align-items:center;justify-content:center;text-decoration:none;min-width:0}
+.wordmark img{height:76px;width:auto;max-width:100%;object-fit:contain;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.5),0 0 0 1px rgba(22,163,74,.25)}
 .chatdot{position:relative}
 .chatdot::after{content:"";position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--df-green-500);box-shadow:var(--pro-glow)}
 
@@ -129,7 +128,7 @@ a{color:inherit}
 .doc ul li form{margin:0}
 
 @media (max-width:640px){
-  .wordmark b{font-size:1.55rem}
+  .wordmark img{height:54px}
   .topnav{display:none}
   .page-head h1,.page-head h2{font-size:1.6rem}
   .doc h1{font-size:1.6rem}
