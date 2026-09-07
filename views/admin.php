@@ -39,6 +39,11 @@ $unassigned = array_filter($teams, static fn (array $t): bool => $t['user_id'] =
                 <?php endif; ?>
             </td>
             <td>
+                <form method="post" action="/admin/teams/rename">
+                    <input type="hidden" name="team_id" value="<?= (int) $t['team_id'] ?>">
+                    <input type="text" name="name" value="<?= e((string) $t['team_name']) ?>" maxlength="100" required>
+                    <button type="submit">Rename team</button>
+                </form>
                 <form method="post" action="/admin/teams/status">
                     <input type="hidden" name="team_id" value="<?= (int) $t['team_id'] ?>">
                     <input type="hidden" name="active" value="<?= $teamActive ? '0' : '1' ?>">

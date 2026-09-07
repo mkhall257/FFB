@@ -130,6 +130,38 @@ final class AdminController
         return Response::redirect('/admin');
     }
 
+    public function renameTeam(Request $request, Session $session): Response
+    {
+        $leagueId = $this->leagues->currentLeagueId();
+        $seasonId = $this->leagues->currentSeasonId();
+        $teamId = (int) $request->input('team_id', '0');
+        $name = trim((string) $request->input('name', ''));
+
+        $team = $this->teams->find($leagueId, $seasonId, $teamId);
+        if ($team === null) {
+            return $this->renderIndex(null, 'Unknown team.', 400);
+        }
+        if ($name === '') {
+            return $this->renderIndex(null, 'Team name is required.', 400);
+        }
+        if ($name === (string) $team['name']) {
+            return Response::redirect('/admin');
+        }
+
+        try {
+            $this->teams->rename($leagueId, $seasonId, $teamId, $name);
+        } catch (PDOException $e) {
+            if ($e->getCode() === '23000') {
+                return $this->renderIndex(null, "A team named \"{$name}\" already exists.", 400);
+            }
+            throw $e;
+        }
+
+        $session->set('flash', "Renamed \"{$team['name']}\" to \"{$name}\".");
+
+        return Response::redirect('/admin');
+    }
+
     public function setTeamStatus(Request $request, Session $session): Response
     {
         $leagueId = $this->leagues->currentLeagueId();

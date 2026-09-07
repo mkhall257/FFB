@@ -120,6 +120,7 @@ final class Kernel
         $router->post('/admin/managers', [$admin, 'createManager'], 'commissioner');
         $router->post('/admin/managers/reset', [$admin, 'resetPassword'], 'commissioner');
         $router->post('/admin/managers/status', [$admin, 'setManagerStatus'], 'commissioner');
+        $router->post('/admin/teams/rename', [$admin, 'renameTeam'], 'commissioner');
         $router->post('/admin/teams/status', [$admin, 'setTeamStatus'], 'commissioner');
         $router->post('/admin/teams/delete', [$admin, 'deleteTeam'], 'commissioner');
         $router->get('/admin/unmatched-players', [$playerAdmin, 'unmatched'], 'commissioner');

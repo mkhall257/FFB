@@ -33,6 +33,19 @@ final class TeamRepository
     }
 
     /**
+     * Rename a Team. Scoped to League + Season as a safety check. May throw a
+     * PDOException with SQLSTATE 23000 if the new name collides with another
+     * Team in the same Season (the caller surfaces that as a friendly error).
+     */
+    public function rename(int $leagueId, int $seasonId, int $teamId, string $name): void
+    {
+        $stmt = $this->pdo->prepare(
+            'UPDATE teams SET name = ? WHERE id = ? AND league_id = ? AND season_id = ?'
+        );
+        $stmt->execute([$name, $teamId, $leagueId, $seasonId]);
+    }
+
+    /**
      * Activate or deactivate a Team. Scoped to League + Season as a safety check.
      */
     public function setActive(int $leagueId, int $seasonId, int $teamId, bool $active): void

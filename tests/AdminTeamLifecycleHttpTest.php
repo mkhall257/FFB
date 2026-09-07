@@ -65,6 +65,55 @@ final class AdminTeamLifecycleHttpTest extends DatabaseTestCase
         $this->assertSame(1, $this->teamActive($teamId));
     }
 
+    private function teamName(int $teamId): string
+    {
+        return (string) $this->pdo->query("SELECT name FROM teams WHERE id = {$teamId}")->fetchColumn();
+    }
+
+    public function testRenameTeam(): void
+    {
+        $teamId = $this->makeTeam('Sharks');
+
+        $response = $this->dispatch('POST', '/admin/teams/rename', ['team_id' => $teamId, 'name' => 'Land Sharks']);
+
+        $this->assertSame(302, $response->status);
+        $this->assertSame('Land Sharks', $this->teamName($teamId));
+    }
+
+    public function testRenameToDuplicateNameIsBlocked(): void
+    {
+        $sharks = $this->makeTeam('Sharks');
+        $this->makeTeam('Bears');
+
+        $response = $this->dispatch('POST', '/admin/teams/rename', ['team_id' => $sharks, 'name' => 'Bears']);
+
+        $this->assertSame(400, $response->status);
+        $this->assertSame('Sharks', $this->teamName($sharks), 'a name collision must leave the team unchanged');
+    }
+
+    public function testRenameToBlankIsRejected(): void
+    {
+        $teamId = $this->makeTeam('Sharks');
+
+        $response = $this->dispatch('POST', '/admin/teams/rename', ['team_id' => $teamId, 'name' => '   ']);
+
+        $this->assertSame(400, $response->status);
+        $this->assertSame('Sharks', $this->teamName($teamId));
+    }
+
+    public function testManagerCannotRenameTeam(): void
+    {
+        $teamId = $this->makeTeam('Sharks');
+        $manager = new ArraySession([
+            'user_id' => 9, 'role' => 'manager', 'league_id' => $this->leagueId(), 'display_name' => 'Kid',
+        ]);
+
+        $response = $this->dispatch('POST', '/admin/teams/rename', ['team_id' => $teamId, 'name' => 'Hackers'], $manager);
+
+        $this->assertSame(403, $response->status);
+        $this->assertSame('Sharks', $this->teamName($teamId));
+    }
+
     public function testDeleteEmptyTeamRemovesIt(): void
     {
         $teamId = $this->makeTeam('Sharks');
