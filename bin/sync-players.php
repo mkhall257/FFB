@@ -15,12 +15,17 @@ declare(strict_types=1);
  * catalog and statuses current:
  *   php bin/sync-players.php
  *
+ * Bye weeks are pulled for the current NFL season. Pass a season year to
+ * override the one derived from today's date (useful off-season or for testing):
+ *   php bin/sync-players.php 2026
+ *
  * ICDSoft cron (php83.cli, from the project root), e.g. daily at 4am:
  *   0 4 * * * /usr/local/bin/php83.cli /home/USER/ffb/bin/sync-players.php >/dev/null 2>&1
  */
 
 use FFB\Database;
 use FFB\Players\FantasyProsDefenseRankings;
+use FFB\Players\NflByeWeeks;
 use FFB\Players\PlayerIdCrosswalk;
 use FFB\Players\PlayerImporter;
 use FFB\Players\SleeperClient;
@@ -54,10 +59,19 @@ try {
     echo '  FantasyPros DST ranks: ' . count($defenseRanks) . " teams.\n";
     $rankedDefenses = $players->assignDefenseRanks($defenseRanks);
 
+    // Bye weeks for the current NFL season (Sept–Feb belongs to the year the
+    // season kicked off in), overridable via a CLI season-year argument.
+    $season = isset($argv[1]) && ctype_digit((string) $argv[1])
+        ? (int) $argv[1]
+        : ((int) date('n') >= 3 ? (int) date('Y') : (int) date('Y') - 1);
+    $byes = (new NflByeWeeks($season))->fetch();
+    echo "  NFL bye weeks ({$season}): " . count($byes) . " teams.\n";
+    $byePlayers = $players->assignByeWeeks($byes);
+
     $syncLog->finishSuccess($logId, $result->upserted, $result->unmatchedCount());
 
     echo "Done. Upserted {$result->upserted} players ({$result->unmatchedCount()} unmatched skill players);"
-        . " ranked {$rankedDefenses} team defenses.\n";
+        . " ranked {$rankedDefenses} team defenses; set byes on {$byePlayers} players.\n";
 } catch (\Throwable $e) {
     $syncLog->finishError($logId, $e->getMessage());
     fwrite(STDERR, "Sync failed: {$e->getMessage()}\n");

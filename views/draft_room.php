@@ -265,7 +265,7 @@ window.FFB_PICK_NO = <?= (int) ($draft['current_pick_no'] ?? 0) ?>;
                     <input type="hidden" name="overall_pick" value="<?= (int) $fixOverall ?>">
                 <?php endif; ?>
                 <table class="pool-table">
-                    <thead><tr><th>Rank</th><th>Player</th><th>Pos</th><th>Team</th><th></th></tr></thead>
+                    <thead><tr><th>Rank</th><th>Player</th><th>Pos</th><th>Team</th><th>Bye</th><th></th></tr></thead>
                     <tbody>
                     <?php foreach ($available as $p): $pid = (string) $p['sleeper_id']; ?>
                         <tr>
@@ -273,6 +273,7 @@ window.FFB_PICK_NO = <?= (int) ($draft['current_pick_no'] ?? 0) ?>;
                             <td><?= e((string) $p['full_name']) ?><?= $statusFlag($p['status'] ?? null) ?></td>
                             <td><?= e((string) $p['position']) ?></td>
                             <td><?= $p['nfl_team'] !== null ? e((string) $p['nfl_team']) : '—' ?></td>
+                            <td><?= ($p['bye_week'] ?? null) !== null ? (int) $p['bye_week'] : '—' ?></td>
                             <td class="actions">
                                 <?php if ($fixing): ?>
                                     <button formaction="/admin/draft/correct-pick" name="player_id" value="<?= e($pid) ?>"
@@ -310,7 +311,7 @@ window.FFB_PICK_NO = <?= (int) ($draft['current_pick_no'] ?? 0) ?>;
         <ol class="queue-list">
             <?php foreach ($myQueue as $i => $q): ?>
                 <li>
-                    <?= e((string) $q['full_name']) ?> (<?= e((string) $q['position']) ?>)<?= $statusFlag($q['status'] ?? null) ?>
+                    <?= e((string) $q['full_name']) ?> (<?= e((string) $q['position']) ?><?= ($q['bye_week'] ?? null) !== null ? ', bye ' . (int) $q['bye_week'] : '' ?>)<?= $statusFlag($q['status'] ?? null) ?>
                     <span class="queue-actions">
                         <?php if ($i > 0): ?>
                             <?php $up = $queueIds; [$up[$i - 1], $up[$i]] = [$up[$i], $up[$i - 1]]; ?>

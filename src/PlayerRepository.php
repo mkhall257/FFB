@@ -78,6 +78,29 @@ final class PlayerRepository
         return count($defenses);
     }
 
+    /**
+     * Set each Player's bye_week from a team => bye-week map (see
+     * {@see \FFB\Players\NflByeWeeks}). Stale byes are cleared first so a team
+     * dropped from the map never keeps a wrong week. Run at the end of a player
+     * sync, so the draft room shows the current season's byes.
+     *
+     * @param array<string,int> $teamBye NFL team code => bye week
+     * @return int the number of Players given a bye week
+     */
+    public function assignByeWeeks(array $teamBye): int
+    {
+        $this->pdo->exec('UPDATE players SET bye_week = NULL WHERE bye_week IS NOT NULL');
+
+        $update = $this->pdo->prepare('UPDATE players SET bye_week = ? WHERE nfl_team = ?');
+        $updated = 0;
+        foreach ($teamBye as $team => $week) {
+            $update->execute([$week, $team]);
+            $updated += $update->rowCount();
+        }
+
+        return $updated;
+    }
+
     /** Positions that can be drafted/rostered (see CONTEXT.md). */
     private const DRAFTABLE_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 
@@ -237,7 +260,7 @@ final class PlayerRepository
         }
 
         $stmt = $this->pdo->prepare(
-            'SELECT p.sleeper_id, p.full_name, p.position, p.nfl_team, p.status, p.search_rank'
+            'SELECT p.sleeper_id, p.full_name, p.position, p.nfl_team, p.bye_week, p.status, p.search_rank'
             . ' FROM players p'
             . " WHERE p.position IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')"
             . ' AND NOT EXISTS ('
@@ -288,7 +311,7 @@ final class PlayerRepository
         }
 
         $stmt = $this->pdo->prepare(
-            'SELECT p.sleeper_id, p.full_name, p.position, p.nfl_team, p.status, p.search_rank'
+            'SELECT p.sleeper_id, p.full_name, p.position, p.nfl_team, p.bye_week, p.status, p.search_rank'
             . ' FROM players p'
             . " WHERE p.position IN ('QB', 'RB', 'WR', 'TE', 'K', 'DEF')"
             . ' AND NOT EXISTS ('

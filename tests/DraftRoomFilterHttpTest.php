@@ -272,6 +272,20 @@ final class DraftRoomFilterHttpTest extends DatabaseTestCase
         $this->assertStringNotContainsString('Assign to #1', $response->body);
     }
 
+    public function testPoolShowsByeWeek(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->seedPlayer('P1', 'Bye Haver', 'RB', 1);
+        $this->pdo->exec("UPDATE players SET bye_week = 11 WHERE sleeper_id = 'P1'");
+        $this->startDraft($teams);
+
+        $response = $this->dispatch('GET', '/draft', [], [], $this->manager($teams[1][1]));
+
+        $this->assertStringContainsString('<th>Bye</th>', $response->body);
+        $this->assertStringContainsString('Bye Haver', $response->body);
+        $this->assertMatchesRegularExpression('/Bye Haver.*?<td>RB<\/td>\s*<td>KC<\/td>\s*<td>11<\/td>/s', $response->body);
+    }
+
     public function testPoolShowsInjuryFlagForANonActivePlayer(): void
     {
         $teams = $this->makeManagedTeams(4);
