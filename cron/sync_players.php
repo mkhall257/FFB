@@ -5,18 +5,19 @@ declare(strict_types=1);
 /**
  * Player sync — run as a scheduled ICDSoft cron job.
  *
- * Fetches the Sleeper players feed and the DynastyProcess id crosswalk,
- * upserts the canonical Player universe, links nflverse ids, and records the
- * run (with the Unmatched count) in player_sync_log.
+ * Runs the shared {@see \FFB\Players\PlayerSync} pipeline: imports the canonical
+ * Player universe from Sleeper (+ nflverse id crosswalk), ranks team defenses
+ * from the FantasyPros DST consensus, sets the current season's bye weeks, and
+ * records the run in player_sync_log. The CLI (bin/sync-players.php) runs the
+ * exact same pipeline — do NOT re-import here without also ranking defenses, or
+ * defenses fall back to unranked/alphabetical (see PlayerSync's docblock).
  *
  * Usage:
  *   php cron/sync_players.php
  */
 
 use FFB\Database;
-use FFB\Players\PlayerIdCrosswalk;
-use FFB\Players\PlayerImporter;
-use FFB\Players\SleeperClient;
+use FFB\Players\PlayerSync;
 use FFB\PlayerRepository;
 use FFB\PlayerSyncLogRepository;
 
@@ -25,19 +26,13 @@ require __DIR__ . '/../vendor/autoload.php';
 $config = require __DIR__ . '/../config/config.php';
 $pdo = Database::connect($config['db']);
 
-$log = new PlayerSyncLogRepository($pdo);
-$runId = $log->start();
+$sync = new PlayerSync(new PlayerRepository($pdo), new PlayerSyncLogRepository($pdo));
 
 try {
-    $sleeperPlayers = (new SleeperClient())->fetchPlayers();
-    $crosswalk = (new PlayerIdCrosswalk())->fetch();
-
-    $result = (new PlayerImporter(new PlayerRepository($pdo)))->import($sleeperPlayers, $crosswalk);
-
-    $log->finishSuccess($runId, $result->upserted, $result->unmatchedCount());
-    echo "Sync #{$runId}: upserted {$result->upserted} players, {$result->unmatchedCount()} unmatched.\n";
+    $r = $sync->run();
+    echo "Sync #{$r->runId}: upserted {$r->playersUpserted} players ({$r->unmatched} unmatched);"
+        . " ranked {$r->defensesRanked} defenses; set byes on {$r->byesSet} players.\n";
 } catch (\Throwable $e) {
-    $log->finishError($runId, $e->getMessage());
-    fwrite(STDERR, "Sync #{$runId} failed: {$e->getMessage()}\n");
+    fwrite(STDERR, "Sync failed: {$e->getMessage()}\n");
     exit(1);
 }
