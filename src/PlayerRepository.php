@@ -42,36 +42,28 @@ final class PlayerRepository
     }
 
     /**
-     * Give every team defense a draft rank. Sleeper ships no rank for defenses,
-     * so on their own they sort alphabetically and pile up behind every ranked
-     * skill player. Here they are ordered by their team's offensive strength —
-     * the best (lowest) Sleeper rank among the team's QB/RB/WR/TE, since a team
-     * stacked with elite skill players is usually a good team whose defense
-     * scores well — and assigned a contiguous block of ranks from
-     * {@see DEFENSE_RANK_BASE}, so they order sensibly among themselves and land
-     * at a realistic spot on the overall board. Defenses whose team has no
-     * ranked players sort last, by team code. Run at the end of a player sync.
+     * Give every team defense a draft rank from a real consensus source, since
+     * Sleeper ships none and defenses would otherwise sort dead-last and
+     * alphabetically. Ordered by the supplied FantasyPros ranking (team code =>
+     * 1-based rank; see {@see \FFB\Players\FantasyProsDefenseRankings}) and
+     * assigned a contiguous block of search_ranks from {@see DEFENSE_RANK_BASE},
+     * so they order correctly among themselves and land at a realistic spot on
+     * the overall board. Any defense whose team is absent from the ranking sorts
+     * last, by team code. Run at the end of a player sync.
      *
+     * @param array<string,int> $teamRank NFL team code => 1-based defense rank
      * @return int the number of defenses ranked
      */
-    public function assignDefenseRanks(): int
+    public function assignDefenseRanks(array $teamRank): int
     {
-        /** @var array<string,int> $bestByTeam nfl_team => best skill-player rank */
-        $bestByTeam = $this->pdo->query(
-            "SELECT nfl_team, MIN(search_rank) AS best FROM players"
-            . " WHERE position IN ('QB', 'RB', 'WR', 'TE')"
-            . ' AND search_rank IS NOT NULL AND nfl_team IS NOT NULL'
-            . ' GROUP BY nfl_team'
-        )->fetchAll(PDO::FETCH_KEY_PAIR);
-
         /** @var list<array<string,mixed>> $defenses */
         $defenses = $this->pdo->query(
             "SELECT sleeper_id, nfl_team FROM players WHERE position = 'DEF'"
         )->fetchAll();
 
-        usort($defenses, static function (array $a, array $b) use ($bestByTeam): int {
-            $ra = $bestByTeam[(string) $a['nfl_team']] ?? PHP_INT_MAX;
-            $rb = $bestByTeam[(string) $b['nfl_team']] ?? PHP_INT_MAX;
+        usort($defenses, static function (array $a, array $b) use ($teamRank): int {
+            $ra = $teamRank[(string) $a['nfl_team']] ?? PHP_INT_MAX;
+            $rb = $teamRank[(string) $b['nfl_team']] ?? PHP_INT_MAX;
 
             return $ra <=> $rb ?: strcmp((string) $a['nfl_team'], (string) $b['nfl_team']);
         });

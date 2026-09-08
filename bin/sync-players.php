@@ -20,6 +20,7 @@ declare(strict_types=1);
  */
 
 use FFB\Database;
+use FFB\Players\FantasyProsDefenseRankings;
 use FFB\Players\PlayerIdCrosswalk;
 use FFB\Players\PlayerImporter;
 use FFB\Players\SleeperClient;
@@ -47,9 +48,11 @@ try {
 
     $result = $importer->import($sleeperPlayers, $crosswalk);
 
-    // Sleeper ships no rank for team defenses; derive one so they don't sort
-    // dead-last and alphabetically in the draft room.
-    $rankedDefenses = $players->assignDefenseRanks();
+    // Sleeper ships no rank for team defenses; apply the FantasyPros consensus
+    // DST ranking so they order correctly instead of dead-last and alphabetical.
+    $defenseRanks = (new FantasyProsDefenseRankings())->fetch();
+    echo '  FantasyPros DST ranks: ' . count($defenseRanks) . " teams.\n";
+    $rankedDefenses = $players->assignDefenseRanks($defenseRanks);
 
     $syncLog->finishSuccess($logId, $result->upserted, $result->unmatchedCount());
 
