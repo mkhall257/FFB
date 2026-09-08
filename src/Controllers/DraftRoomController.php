@@ -216,10 +216,43 @@ final class DraftRoomController
             }
         }
 
+        $onClockName = null;
+        $nextUpName = null;
+        $myNextOverall = null;
+        $myNextRound = null;
+        $picksUntilMyTurn = null;
+
         if ($draft !== null && $draft['state'] === 'live' && $draft['current_pick_no'] !== null) {
-            $current = $this->picks->findByOverall((int) $draft['id'], (int) $draft['current_pick_no']);
+            $currentNo = (int) $draft['current_pick_no'];
+
+            // Index the board by overall pick so the clock, the next team up, and
+            // the Manager's own next pick are one lookup each.
+            $byOverall = [];
+            foreach ($board as $row) {
+                $byOverall[(int) $row['overall_pick']] = $row;
+            }
+
+            $current = $byOverall[$currentNo] ?? null;
             $onClockTeamId = $current !== null ? (int) $current['team_id'] : null;
+            $onClockName = $current !== null ? (string) $current['team_name'] : null;
             $myTurn = $myTeam !== null && $onClockTeamId === (int) $myTeam['id'];
+
+            $next = $byOverall[$currentNo + 1] ?? null;
+            $nextUpName = $next !== null ? (string) $next['team_name'] : null;
+
+            // The Manager's next unmade pick at or after the clock, and how many
+            // picks away it is (0 = on the clock now).
+            if ($myTeam !== null) {
+                for ($overall = $currentNo; isset($byOverall[$overall]); $overall++) {
+                    $slot = $byOverall[$overall];
+                    if ((int) $slot['team_id'] === (int) $myTeam['id'] && $slot['player_id'] === null) {
+                        $myNextOverall = $overall;
+                        $myNextRound = (int) $slot['round'];
+                        $picksUntilMyTurn = $overall - $currentNo;
+                        break;
+                    }
+                }
+            }
 
             if ($draft['current_deadline'] !== null) {
                 $secondsLeft = max(0, strtotime((string) $draft['current_deadline']) - time());
@@ -242,6 +275,12 @@ final class DraftRoomController
                 'myQueue' => $myQueue,
                 'myTeam' => $myTeam,
                 'onClockTeamId' => $onClockTeamId,
+                'onClockName' => $onClockName,
+                'nextUpName' => $nextUpName,
+                'myNextOverall' => $myNextOverall,
+                'myNextRound' => $myNextRound,
+                'picksUntilMyTurn' => $picksUntilMyTurn,
+                'autopickOnExpiry' => $draft !== null && (int) ($draft['autopick_on_expiry'] ?? 0) === 1,
                 'myTurn' => $myTurn,
                 'secondsLeft' => $secondsLeft,
                 'myRosterCounts' => $myRosterCounts,

@@ -8,6 +8,12 @@
  * @var list<array<string,mixed>> $myQueue      the viewer's personal queue, in rank order
  * @var array<string,mixed>|null $myTeam        the viewer's team, or null
  * @var int|null $onClockTeamId
+ * @var string|null $onClockName                  team currently on the clock
+ * @var string|null $nextUpName                   team picking after the clock
+ * @var int|null $myNextOverall                   overall number of the viewer's next unmade pick
+ * @var int|null $myNextRound                     round of that pick
+ * @var int|null $picksUntilMyTurn                picks until the viewer is up (0 = now, null = none left)
+ * @var bool $autopickOnExpiry                    whether an expired timer auto-picks
  * @var bool $myTurn
  * @var int|null $secondsLeft                    seconds left on the current pick clock, or null
  * @var array<string,int> $myRosterCounts        the viewer's drafted counts, position => count
@@ -57,6 +63,7 @@ $filterUrl = static function (?string $pos, ?string $q): string {
 
 <style>
 .draft-clock { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.draft-clock.inline { font-size: 1.1rem; }
 .draft-clock.low { color: #c0392b; }
 .onclock-banner { padding: 0.75rem 1rem; border-radius: 8px; background: #eef4ff; margin: 0.5rem 0 1rem; }
 .onclock-banner.mine { background: #e7f8ec; border: 2px solid #2ecc71; }
@@ -115,14 +122,43 @@ $filterUrl = static function (?string $pos, ?string $q): string {
     <?php // Live or paused. ?>
     <div class="onclock-banner<?= $myTurn ? ' mine' : '' ?>">
         <?php if ($state === 'paused'): ?>
-            <strong>The draft is paused by the commissioner.</strong>
+            <strong>&#9208; The draft is paused by the commissioner.</strong>
         <?php elseif ($myTurn): ?>
-            <strong>You're on the clock — make your pick!</strong>
+            <div><strong>&#128994; You're on the clock &mdash; make your pick below!</strong></div>
+            <?php if ($state === 'live' && $secondsLeft !== null): ?>
+                <div style="margin-top:0.35rem">
+                    <?= $autopickOnExpiry ? 'Auto-pick in' : 'Time left' ?>:
+                    <span class="draft-clock" data-seconds-left="<?= (int) $secondsLeft ?>">--:--</span>
+                </div>
+                <p style="margin:0.25rem 0 0; font-size:0.85em">
+                    <?= $autopickOnExpiry
+                        ? 'If the timer runs out, your top queued player (or the best available) is drafted for you.'
+                        : 'If the timer runs out you stay on the clock &mdash; nothing is picked until you choose.' ?>
+                </p>
+            <?php endif; ?>
         <?php else: ?>
-            On the clock: <strong><?= e($onClockName) ?></strong> (pick <?= (int) ($draft['current_pick_no'] ?? 0) ?>)
-        <?php endif; ?>
-        <?php if ($state === 'live' && $secondsLeft !== null): ?>
-            <div class="draft-clock" data-seconds-left="<?= (int) $secondsLeft ?>">--:--</div>
+            <div>
+                On the clock: <strong><?= e((string) $onClockName) ?></strong>
+                (pick #<?= (int) ($draft['current_pick_no'] ?? 0) ?><?= $onClock !== null ? ', round ' . (int) $onClock['round'] : '' ?>)
+                <?php if ($state === 'live' && $secondsLeft !== null): ?>
+                    &mdash; <span class="draft-clock inline" data-seconds-left="<?= (int) $secondsLeft ?>">--:--</span>
+                <?php endif; ?>
+            </div>
+            <?php if ($nextUpName !== null): ?>
+                <div>Next up: <strong><?= e($nextUpName) ?></strong></div>
+            <?php endif; ?>
+            <?php if ($myTeam !== null): ?>
+                <div style="margin-top:0.25rem">
+                    <?php if ($picksUntilMyTurn === null): ?>
+                        You have no more picks left in this draft.
+                    <?php elseif ($picksUntilMyTurn === 1): ?>
+                        <strong>You're up next!</strong> (your pick is #<?= (int) $myNextOverall ?>)
+                    <?php else: ?>
+                        Your next pick: <strong><?= (int) $picksUntilMyTurn ?> picks away</strong>
+                        (pick #<?= (int) $myNextOverall ?>, round <?= (int) $myNextRound ?>)
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 <?php endif; ?>
@@ -298,9 +334,8 @@ $filterUrl = static function (?string $pos, ?string $q): string {
 
 <script>
 (function () {
-    // Live pick-clock countdown, ticking from the server's remaining seconds.
-    var clock = document.querySelector('.draft-clock[data-seconds-left]');
-    if (clock) {
+    // Live pick-clock countdown(s), ticking from the server's remaining seconds.
+    Array.prototype.forEach.call(document.querySelectorAll('.draft-clock[data-seconds-left]'), function (clock) {
         var left = parseInt(clock.getAttribute('data-seconds-left'), 10) || 0;
         var render = function () {
             if (left <= 0) { clock.textContent = "Time's up"; clock.classList.add('low'); return; }
@@ -310,7 +345,7 @@ $filterUrl = static function (?string $pos, ?string $q): string {
         };
         render();
         setInterval(function () { if (left > 0) { left--; render(); } }, 1000);
-    }
+    });
 
     // Auto-refresh the room, but never interrupt a manager mid-search: if the
     // search box is focused, wait for the next tick instead of reloading.

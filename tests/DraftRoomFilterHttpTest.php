@@ -179,4 +179,47 @@ final class DraftRoomFilterHttpTest extends DatabaseTestCase
         $this->assertStringContainsString('Unique Searchname', $response->body);
         $this->assertStringNotContainsString('Someone Else', $response->body);
     }
+
+    public function testRoomShowsOnClockNextUpAndPicksUntilMyTurn(): void
+    {
+        // 4-team snake: pick 1 = Team 1 (clock), 2 = Team 2 (next), 4 = Team 4.
+        $teams = $this->makeManagedTeams(4);
+        $this->startDraft($teams);
+
+        // View as Team 4's manager: three picks away, at overall #4.
+        $response = $this->dispatch('GET', '/draft', [], [], $this->manager($teams[3][1]));
+
+        $this->assertSame(200, $response->status);
+        $this->assertStringContainsString('On the clock:', $response->body);
+        $this->assertStringContainsString('Team 1', $response->body);
+        $this->assertStringContainsString('Next up:', $response->body);
+        $this->assertStringContainsString('Team 2', $response->body);
+        $this->assertStringContainsString('3 picks away', $response->body);
+        $this->assertStringContainsString('pick #4', $response->body);
+    }
+
+    public function testRoomShowsUpNextForTheImmediatelyFollowingTeam(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->startDraft($teams);
+
+        // Team 2 picks right after the clock.
+        $response = $this->dispatch('GET', '/draft', [], [], $this->manager($teams[1][1]));
+
+        $this->assertStringContainsString("You're up next!", $response->body);
+    }
+
+    public function testRoomShowsOnTheClockBannerAndAutopickCountdownForMe(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->startDraft($teams);
+
+        // Team 1 is on the clock at pick 1.
+        $response = $this->dispatch('GET', '/draft', [], [], $this->manager($teams[0][1]));
+
+        $this->assertStringContainsString("You're on the clock", $response->body);
+        // Autopick is on by default, so the countdown is labelled as an auto-pick timer.
+        $this->assertStringContainsString('Auto-pick in', $response->body);
+        $this->assertStringContainsString('data-seconds-left', $response->body);
+    }
 }
