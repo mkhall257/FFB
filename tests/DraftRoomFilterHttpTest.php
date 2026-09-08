@@ -312,6 +312,25 @@ final class DraftRoomFilterHttpTest extends DatabaseTestCase
         $this->assertStringContainsString('dot on', $response->body);
     }
 
+    public function testRoomStillLoadsWhenThePresenceTableIsMissing(): void
+    {
+        // Presence is disposable heartbeat data: if the table isn't there (e.g. a
+        // fresh deploy that hasn't run the migration yet), the room must still
+        // render rather than 500. It just shows nobody as connected.
+        $teams = $this->makeManagedTeams(4);
+        $this->startDraft($teams);
+        $this->pdo->exec('DROP TABLE draft_presence');
+
+        // View as Team 4 (not on the clock) so the "On the clock:" line renders.
+        $response = $this->dispatch('GET', '/draft', [], [], $this->manager($teams[3][1]));
+
+        $this->assertSame(200, $response->status);
+        $this->assertStringContainsString('On the clock:', $response->body);
+        // No presence data, so every team shows the not-connected dot.
+        $this->assertStringNotContainsString('dot on', $response->body);
+        $this->assertStringContainsString('dot off', $response->body);
+    }
+
     public function testDraftButtonCarriesOverDraftWarningData(): void
     {
         $teams = $this->makeManagedTeams(4);

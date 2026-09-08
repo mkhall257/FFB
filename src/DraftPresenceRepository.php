@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace FFB;
 
 use PDO;
+use PDOException;
 
 /**
  * The draft room's presence heartbeat (see ADR-0003). Every poll of the room
@@ -12,6 +13,11 @@ use PDO;
  * then reports which Teams have a manager who was seen recently, so the room can
  * show who is actually connected. Heartbeat data is disposable — it is never a
  * source of truth for anything but the "is X here right now" display.
+ *
+ * Because it is disposable, both methods fail soft: a database error (e.g. the
+ * table not yet migrated on a fresh deploy) degrades to "no presence info"
+ * rather than taking down the whole draft room. The room simply shows everyone
+ * as not-connected until presence is writable again.
  */
 final class DraftPresenceRepository
 {
@@ -21,34 +27,44 @@ final class DraftPresenceRepository
 
     /**
      * Record (or refresh) the viewer's presence in a Draft. team_id is null for
-     * a viewer who manages no Team (e.g. the Commissioner).
+     * a viewer who manages no Team (e.g. the Commissioner). A write failure is
+     * swallowed — a missed heartbeat is harmless (see class docblock).
      */
     public function touch(int $draftId, int $userId, ?int $teamId): void
     {
-        $stmt = $this->pdo->prepare(
-            'INSERT INTO draft_presence (draft_id, user_id, team_id, last_seen)'
-            . ' VALUES (?, ?, ?, NOW())'
-            . ' ON DUPLICATE KEY UPDATE team_id = VALUES(team_id), last_seen = VALUES(last_seen)'
-        );
-        $stmt->execute([$draftId, $userId, $teamId]);
+        try {
+            $stmt = $this->pdo->prepare(
+                'INSERT INTO draft_presence (draft_id, user_id, team_id, last_seen)'
+                . ' VALUES (?, ?, ?, NOW())'
+                . ' ON DUPLICATE KEY UPDATE team_id = VALUES(team_id), last_seen = VALUES(last_seen)'
+            );
+            $stmt->execute([$draftId, $userId, $teamId]);
+        } catch (PDOException) {
+            // Presence is disposable; never let a heartbeat write break the room.
+        }
     }
 
     /**
      * Team ids whose manager was seen within the last $withinSeconds. The window
      * is an internal constant (never user input), so it is inlined rather than
-     * bound — some MySQL builds reject a placeholder inside INTERVAL.
+     * bound — some MySQL builds reject a placeholder inside INTERVAL. A read
+     * failure degrades to "nobody connected" rather than breaking the room.
      *
      * @return list<int>
      */
     public function connectedTeamIds(int $draftId, int $withinSeconds): array
     {
         $seconds = max(1, $withinSeconds);
-        $stmt = $this->pdo->prepare(
-            'SELECT DISTINCT team_id FROM draft_presence'
-            . ' WHERE draft_id = ? AND team_id IS NOT NULL'
-            . " AND last_seen >= (NOW() - INTERVAL {$seconds} SECOND)"
-        );
-        $stmt->execute([$draftId]);
+        try {
+            $stmt = $this->pdo->prepare(
+                'SELECT DISTINCT team_id FROM draft_presence'
+                . ' WHERE draft_id = ? AND team_id IS NOT NULL'
+                . " AND last_seen >= (NOW() - INTERVAL {$seconds} SECOND)"
+            );
+            $stmt->execute([$draftId]);
+        } catch (PDOException) {
+            return [];
+        }
 
         return array_map(intval(...), array_column($stmt->fetchAll(), 'team_id'));
     }
