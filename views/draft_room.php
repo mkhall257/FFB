@@ -23,6 +23,8 @@
  * @var string $filterQ                          the active name search ('' = none)
  * @var bool $isCommissioner
  * @var list<array<string,mixed>> $order   draft order rows (commissioner only)
+ * @var int|null $fixOverall               overall pick the commissioner is correcting (?fix=), or null
+ * @var string|null $fixCurrentName        player currently on the pick being corrected
  * @var string|null $flash
  * @var string|null $error
  */
@@ -39,7 +41,10 @@ $made = array_values(array_filter($board, static fn ($r) => $r['player_id'] !== 
 $recent = array_slice(array_reverse($made), 0, 10);
 
 $poolOpen = in_array($state, ['ready', 'live', 'paused'], true);
-$showPool = $poolOpen && ($myTeam !== null || ($isCommissioner && $state === 'live'));
+// The commissioner sees the pool during a live OR paused draft — paused so they
+// can correct a pick (?fix=) while the clock is stopped.
+$showPool = $poolOpen && ($myTeam !== null || ($isCommissioner && in_array($state, ['live', 'paused'], true)));
+$fixing = $isCommissioner && ($fixOverall ?? null) !== null;
 
 // Build a /draft URL that keeps the other filter set when one changes.
 $filterUrl = static function (?string $pos, ?string $q): string {
@@ -52,14 +57,47 @@ $filterUrl = static function (?string $pos, ?string $q): string {
     }
     return '/draft' . ($params === [] ? '' : '?' . http_build_query($params));
 };
+
+// A short, colour-coded flag for a Player whose availability is in doubt.
+// Sleeper's status is "Active" for healthy players; anything else (Out,
+// Questionable, Injured Reserve, Suspended, …) is worth surfacing so a Manager
+// doesn't unknowingly draft or queue a hurt or unavailable player.
+$statusFlag = static function ($status): string {
+    $status = trim((string) $status);
+    if ($status === '' || strcasecmp($status, 'Active') === 0) {
+        return '';
+    }
+    $labels = [
+        'Injured Reserve' => 'IR',
+        'Physically Unable to Perform' => 'PUP',
+        'Non Football Injury' => 'NFI',
+        'Questionable' => 'Q',
+        'Doubtful' => 'D',
+        'Suspended' => 'SUSP',
+        'Inactive' => 'INA',
+    ];
+    $label = $labels[$status] ?? strtoupper($status);
+
+    return ' <span class="status-flag" title="' . e($status) . '">' . e($label) . '</span>';
+};
 ?>
-<?php if ($state === 'live' && !$myTurn): ?>
-    <?php // Poll so managers/commissioner see picks land and the clock move; paused while typing a search (see script). ?>
-    <script>window.FFB_DRAFT_POLL = 2500;</script>
+<?php if ($state === 'live'): ?>
+    <?php // Poll so everyone — including the manager ON the clock — sees picks land,
+          // the clock move, and any commissioner pause/added time. The on-clock
+          // manager polls a little slower so a reload is less likely to interrupt a
+          // pick. Reloads pause while a form control is focused (see script). ?>
+    <script>window.FFB_DRAFT_POLL = <?= $myTurn ? 5000 : 2500 ?>;</script>
+<?php elseif ($state === 'paused'): ?>
+    <?php // Keep the paused screen fresh so everyone sees the resume / added time. ?>
+    <script>window.FFB_DRAFT_POLL = 5000;</script>
 <?php elseif ($state === 'ready' && !empty($draft['scheduled_at'])): ?>
     <?php // Poll so the pre-staged auto-start fires (and everyone lands in the live room) at the scheduled time. ?>
     <script>window.FFB_DRAFT_POLL = 15000;</script>
 <?php endif; ?>
+<script>
+window.FFB_MY_TURN = <?= $myTurn && $state === 'live' ? 'true' : 'false' ?>;
+window.FFB_PICK_NO = <?= (int) ($draft['current_pick_no'] ?? 0) ?>;
+</script>
 
 <style>
 .draft-clock { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -79,6 +117,13 @@ $filterUrl = static function (?string $pos, ?string $q): string {
 .need-pill { padding: 0.25rem 0.6rem; border-radius: 6px; background: #f1f1f1; font-size: 0.9rem; }
 .need-pill.met { background: #e7f8ec; }
 .need-pill.open { background: #fff3cd; }
+.status-flag { display: inline-block; padding: 0 0.35rem; margin-left: 0.15rem; border-radius: 4px;
+    background: #fdecea; color: #c0392b; font-size: 0.7rem; font-weight: 700; vertical-align: middle; }
+.fix-banner { padding: 0.6rem 0.9rem; border-radius: 8px; background: #fff3cd; border: 1px solid #e0c65a;
+    margin: 0.5rem 0 1rem; }
+.queue-actions { white-space: nowrap; }
+.queue-actions form { display: inline; }
+.queue-actions button { min-width: 2rem; }
 </style>
 
 <h1>Draft room</h1>
@@ -86,6 +131,14 @@ $filterUrl = static function (?string $pos, ?string $q): string {
 
 <?php if (!empty($flash)): ?><p role="status"><?= e($flash) ?></p><?php endif; ?>
 <?php if (!empty($error)): ?><p role="alert"><?= e($error) ?></p><?php endif; ?>
+
+<?php if ($fixing): ?>
+    <div class="fix-banner" role="status">
+        <strong>Correcting pick #<?= (int) $fixOverall ?><?= $fixCurrentName !== null ? ' (currently ' . e($fixCurrentName) . ')' : '' ?>.</strong>
+        Choose a replacement from the available players below.
+        <a href="/draft">Cancel</a>
+    </div>
+<?php endif; ?>
 
 <?php if ($draft === null || $state === 'setup' || $state === 'ready'): ?>
     <?php if ($state === 'ready' && !empty($draft['scheduled_at'])): ?>
@@ -207,25 +260,34 @@ $filterUrl = static function (?string $pos, ?string $q): string {
     <?php else: ?>
         <div class="pool-scroll">
             <form method="post">
+                <?php if ($fixing): ?>
+                    <?php // The correct-pick endpoint needs the overall pick being fixed. ?>
+                    <input type="hidden" name="overall_pick" value="<?= (int) $fixOverall ?>">
+                <?php endif; ?>
                 <table class="pool-table">
                     <thead><tr><th>Rank</th><th>Player</th><th>Pos</th><th>Team</th><th></th></tr></thead>
                     <tbody>
                     <?php foreach ($available as $p): $pid = (string) $p['sleeper_id']; ?>
                         <tr>
                             <td><?= $p['search_rank'] !== null ? (int) $p['search_rank'] : '—' ?></td>
-                            <td><?= e((string) $p['full_name']) ?></td>
+                            <td><?= e((string) $p['full_name']) ?><?= $statusFlag($p['status'] ?? null) ?></td>
                             <td><?= e((string) $p['position']) ?></td>
                             <td><?= $p['nfl_team'] !== null ? e((string) $p['nfl_team']) : '—' ?></td>
                             <td class="actions">
-                                <?php if ($myTurn): ?>
-                                    <button formaction="/draft/pick" name="player_id" value="<?= e($pid) ?>">Draft</button>
-                                <?php endif; ?>
-                                <?php if ($myTeam !== null): ?>
-                                    <button formaction="/draft/queue/add" name="player_id" value="<?= e($pid) ?>">+ Queue</button>
-                                <?php endif; ?>
-                                <?php if ($isCommissioner && $state === 'live' && $onClockTeamId !== null): ?>
-                                    <button formaction="/admin/draft/pick-on-behalf" name="player_id" value="<?= e($pid) ?>"
-                                            title="Draft for <?= e($onClockName) ?>">Draft for <?= e($onClockName) ?></button>
+                                <?php if ($fixing): ?>
+                                    <button formaction="/admin/draft/correct-pick" name="player_id" value="<?= e($pid) ?>"
+                                            title="Set pick #<?= (int) $fixOverall ?> to this player">Assign to #<?= (int) $fixOverall ?></button>
+                                <?php else: ?>
+                                    <?php if ($myTurn): ?>
+                                        <button formaction="/draft/pick" name="player_id" value="<?= e($pid) ?>">Draft</button>
+                                    <?php endif; ?>
+                                    <?php if ($myTeam !== null): ?>
+                                        <button formaction="/draft/queue/add" name="player_id" value="<?= e($pid) ?>">+ Queue</button>
+                                    <?php endif; ?>
+                                    <?php if ($isCommissioner && $state === 'live' && $onClockTeamId !== null): ?>
+                                        <button formaction="/admin/draft/pick-on-behalf" name="player_id" value="<?= e($pid) ?>"
+                                                title="Draft for <?= e($onClockName) ?>">Draft for <?= e($onClockName) ?></button>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -243,14 +305,32 @@ $filterUrl = static function (?string $pos, ?string $q): string {
     <?php if ($myQueue === []): ?>
         <p>Your queue is empty. Add players from the list above — they drive your auto-pick if your timer runs out.</p>
     <?php else: ?>
-        <ol>
-            <?php foreach ($myQueue as $q): ?>
+        <p style="font-size:0.85em; color:#666">In order — the top player is drafted for you first if your timer runs out. Use ▲/▼ to reprioritize.</p>
+        <?php $queueIds = array_map(static fn ($q) => (string) $q['player_id'], $myQueue); $queueCount = count($queueIds); ?>
+        <ol class="queue-list">
+            <?php foreach ($myQueue as $i => $q): ?>
                 <li>
-                    <?= e((string) $q['full_name']) ?> (<?= e((string) $q['position']) ?>)
-                    <form method="post" action="/draft/queue/remove" style="display:inline">
-                        <input type="hidden" name="player_id" value="<?= e((string) $q['player_id']) ?>">
-                        <button type="submit">Remove</button>
-                    </form>
+                    <?= e((string) $q['full_name']) ?> (<?= e((string) $q['position']) ?>)<?= $statusFlag($q['status'] ?? null) ?>
+                    <span class="queue-actions">
+                        <?php if ($i > 0): ?>
+                            <?php $up = $queueIds; [$up[$i - 1], $up[$i]] = [$up[$i], $up[$i - 1]]; ?>
+                            <form method="post" action="/draft/queue/reorder">
+                                <?php foreach ($up as $id): ?><input type="hidden" name="player_ids[]" value="<?= e($id) ?>"><?php endforeach; ?>
+                                <button type="submit" title="Move up" aria-label="Move up">&#9650;</button>
+                            </form>
+                        <?php endif; ?>
+                        <?php if ($i < $queueCount - 1): ?>
+                            <?php $down = $queueIds; [$down[$i + 1], $down[$i]] = [$down[$i], $down[$i + 1]]; ?>
+                            <form method="post" action="/draft/queue/reorder">
+                                <?php foreach ($down as $id): ?><input type="hidden" name="player_ids[]" value="<?= e($id) ?>"><?php endforeach; ?>
+                                <button type="submit" title="Move down" aria-label="Move down">&#9660;</button>
+                            </form>
+                        <?php endif; ?>
+                        <form method="post" action="/draft/queue/remove">
+                            <input type="hidden" name="player_id" value="<?= e((string) $q['player_id']) ?>">
+                            <button type="submit">Remove</button>
+                        </form>
+                    </span>
                 </li>
             <?php endforeach; ?>
         </ol>
@@ -316,9 +396,10 @@ $filterUrl = static function (?string $pos, ?string $q): string {
 <?php endif; ?>
 
 <?php if ($board !== []): ?>
+    <?php $canFix = $isCommissioner && in_array($state, ['live', 'paused'], true); ?>
     <h2>Board</h2>
     <table>
-        <thead><tr><th>#</th><th>Rd</th><th>Team</th><th>Player</th></tr></thead>
+        <thead><tr><th>#</th><th>Rd</th><th>Team</th><th>Player</th><?php if ($canFix): ?><th></th><?php endif; ?></tr></thead>
         <tbody>
         <?php foreach ($board as $row): ?>
             <tr>
@@ -326,6 +407,9 @@ $filterUrl = static function (?string $pos, ?string $q): string {
                 <td><?= (int) $row['round'] ?></td>
                 <td><?= e((string) $row['team_name']) ?></td>
                 <td><?= $row['player_name'] !== null ? e((string) $row['player_name']) : '—' ?></td>
+                <?php if ($canFix): ?>
+                    <td><?php if ($row['player_id'] !== null): ?><a href="/draft?fix=<?= (int) $row['overall_pick'] ?>">Fix</a><?php endif; ?></td>
+                <?php endif; ?>
             </tr>
         <?php endforeach; ?>
         </tbody>
@@ -347,19 +431,63 @@ $filterUrl = static function (?string $pos, ?string $q): string {
         setInterval(function () { if (left > 0) { left--; render(); } }, 1000);
     });
 
-    // Auto-refresh the room, but never interrupt a manager mid-search: if the
-    // search box is focused, wait for the next tick instead of reloading.
+    // Auto-refresh the room, but never interrupt someone mid-action: if any form
+    // control is focused (searching, or about to click Draft/Queue/a control),
+    // wait for the next tick instead of reloading.
     var poll = window.FFB_DRAFT_POLL;
     if (poll) {
         var tick = function () {
-            var search = document.getElementById('pool-search');
-            if (search && document.activeElement === search) {
+            var ae = document.activeElement;
+            if (ae && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(ae.tagName)) {
                 setTimeout(tick, poll);
                 return;
             }
             location.reload();
         };
         setTimeout(tick, poll);
+    }
+
+    // "It's your turn" alert. The tab-title flash is the dependable signal — it
+    // works even in a background tab, and needs no prior click. The beep and
+    // vibrate are best-effort: browsers may block them until the page has been
+    // interacted with, so they're a bonus, not the primary cue. The beep fires at
+    // most once per pick (tracked in sessionStorage) so the auto-reload doesn't
+    // re-trigger it every few seconds.
+    if (window.FFB_MY_TURN) {
+        var baseTitle = document.title;
+        var flashed = false;
+        setInterval(function () {
+            flashed = !flashed;
+            document.title = flashed ? '⏰ YOUR PICK!' : baseTitle;
+        }, 1000);
+
+        var pickKey = 'ffb-alerted-pick-' + window.FFB_PICK_NO;
+        var alreadyAlerted = false;
+        try { alreadyAlerted = sessionStorage.getItem(pickKey) === '1'; } catch (e) {}
+        if (!alreadyAlerted) {
+            try { sessionStorage.setItem(pickKey, '1'); } catch (e) {}
+            try { if (navigator.vibrate) { navigator.vibrate([200, 100, 200]); } } catch (e) {}
+            try {
+                var Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) {
+                    var ctx = new Ctx();
+                    var beep = function (freq, start, dur) {
+                        var osc = ctx.createOscillator(), gain = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.value = freq;
+                        gain.gain.setValueAtTime(0.0001, ctx.currentTime + start);
+                        gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + start + 0.02);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(ctx.currentTime + start);
+                        osc.stop(ctx.currentTime + start + dur);
+                    };
+                    beep(880, 0, 0.25);
+                    beep(1175, 0.3, 0.3);
+                }
+            } catch (e) {}
+        }
     }
 }());
 </script>

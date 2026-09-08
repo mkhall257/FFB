@@ -222,4 +222,65 @@ final class DraftRoomFilterHttpTest extends DatabaseTestCase
         $this->assertStringContainsString('Auto-pick in', $response->body);
         $this->assertStringContainsString('data-seconds-left', $response->body);
     }
+
+    public function testQueueShowsReorderControls(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->seedPlayer('P1', 'Alpha Back', 'RB', 1);
+        $this->seedPlayer('P2', 'Bravo Back', 'RB', 2);
+        $this->startDraft($teams);
+        $mgr = $this->manager($teams[1][1]);
+
+        $this->dispatch('POST', '/draft/queue/add', ['player_id' => 'P1'], [], $mgr);
+        $this->dispatch('POST', '/draft/queue/add', ['player_id' => 'P2'], [], $mgr);
+        $response = $this->dispatch('GET', '/draft', [], [], $mgr);
+
+        // Two queued players: the first can move down, the second can move up.
+        $this->assertStringContainsString('Move down', $response->body);
+        $this->assertStringContainsString('Move up', $response->body);
+        $this->assertStringContainsString('/draft/queue/reorder', $response->body);
+    }
+
+    public function testCommissionerCanOpenFixFlowForAMadePick(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->seedPlayer('P1', 'Alpha Back', 'RB', 1);
+        $this->seedPlayer('P2', 'Bravo Back', 'RB', 2);
+        $this->startDraft($teams);
+        $this->dispatch('POST', '/admin/draft/pick-on-behalf', ['player_id' => 'P1']);
+
+        $response = $this->dispatch('GET', '/draft', [], ['fix' => '1']);
+
+        $this->assertSame(200, $response->status);
+        $this->assertStringContainsString('Correcting pick #1', $response->body);
+        $this->assertStringContainsString('Assign to #1', $response->body);
+        $this->assertStringContainsString('name="overall_pick" value="1"', $response->body);
+        $this->assertStringContainsString('/admin/draft/correct-pick', $response->body);
+    }
+
+    public function testManagerCannotOpenTheFixFlow(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->seedPlayer('P1', 'Alpha Back', 'RB', 1);
+        $this->startDraft($teams);
+        $this->dispatch('POST', '/admin/draft/pick-on-behalf', ['player_id' => 'P1']);
+
+        // A manager passing ?fix= gets no correction UI (commissioner-only).
+        $response = $this->dispatch('GET', '/draft', [], ['fix' => '1'], $this->manager($teams[1][1]));
+
+        $this->assertStringNotContainsString('Correcting pick #1', $response->body);
+        $this->assertStringNotContainsString('Assign to #1', $response->body);
+    }
+
+    public function testPoolShowsInjuryFlagForANonActivePlayer(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        (new PlayerRepository($this->pdo))->upsert('HURT', null, 'Banged Up', 'WR', 'KC', 'Questionable', 1);
+        $this->startDraft($teams);
+
+        $response = $this->dispatch('GET', '/draft', [], [], $this->manager($teams[1][1]));
+
+        $this->assertStringContainsString('Banged Up', $response->body);
+        $this->assertStringContainsString('status-flag', $response->body);
+    }
 }

@@ -267,6 +267,28 @@ final class DraftRoomController
         $isCommissioner = $session->get('role') === 'commissioner';
         $order = $draft !== null && $isCommissioner ? $this->drafts->order((int) $draft['id']) : [];
 
+        // A Commissioner correcting a specific already-made pick (?fix=<overall>):
+        // the available pool's action becomes "assign to pick #N" and a banner
+        // names the pick being fixed. Only a made pick during a live/paused draft
+        // is fixable this way (the correct-pick endpoint enforces the rest).
+        $fixOverall = null;
+        $fixCurrentName = null;
+        if (
+            $isCommissioner
+            && $draft !== null
+            && in_array($draft['state'], ['live', 'paused'], true)
+            && ctype_digit((string) ($request->query['fix'] ?? ''))
+        ) {
+            $candidate = (int) $request->query['fix'];
+            foreach ($board as $row) {
+                if ((int) $row['overall_pick'] === $candidate && $row['player_id'] !== null) {
+                    $fixOverall = $candidate;
+                    $fixCurrentName = (string) $row['player_name'];
+                    break;
+                }
+            }
+        }
+
         return Response::html(
             $this->view->page('draft_room', 'Draft room', [
                 'draft' => $draft,
@@ -290,6 +312,8 @@ final class DraftRoomController
                 'filterQ' => $filterQ,
                 'isCommissioner' => $isCommissioner,
                 'order' => $order,
+                'fixOverall' => $fixOverall,
+                'fixCurrentName' => $fixCurrentName,
                 'flash' => $flash,
                 'error' => $error,
             ], '', '', 'layout_app'),

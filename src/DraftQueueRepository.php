@@ -40,7 +40,7 @@ final class DraftQueueRepository
     public function queued(int $draftId, int $teamId): array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT q.player_id, q.rank_position, p.full_name, p.position, p.nfl_team'
+            'SELECT q.player_id, q.rank_position, p.full_name, p.position, p.nfl_team, p.status'
             . ' FROM draft_queue q JOIN players p ON p.sleeper_id = q.player_id'
             . ' WHERE q.draft_id = ? AND q.team_id = ? ORDER BY q.rank_position'
         );
