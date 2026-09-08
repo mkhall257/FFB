@@ -46,9 +46,15 @@ try {
     echo '  Crosswalk: ' . count($crosswalk) . " id links.\n";
 
     $result = $importer->import($sleeperPlayers, $crosswalk);
+
+    // Sleeper ships no rank for team defenses; derive one so they don't sort
+    // dead-last and alphabetically in the draft room.
+    $rankedDefenses = $players->assignDefenseRanks();
+
     $syncLog->finishSuccess($logId, $result->upserted, $result->unmatchedCount());
 
-    echo "Done. Upserted {$result->upserted} players ({$result->unmatchedCount()} unmatched skill players).\n";
+    echo "Done. Upserted {$result->upserted} players ({$result->unmatchedCount()} unmatched skill players);"
+        . " ranked {$rankedDefenses} team defenses.\n";
 } catch (\Throwable $e) {
     $syncLog->finishError($logId, $e->getMessage());
     fwrite(STDERR, "Sync failed: {$e->getMessage()}\n");
