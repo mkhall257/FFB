@@ -120,45 +120,55 @@ window.FFB_ROSTER = {
 </script>
 
 <style>
-.draft-clock { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* The room lives inside the dark broadcast theme (.doc on body.app). These
+ * components were originally light-themed: any light fill with no text colour
+ * inherited the near-white body text and vanished. They now use translucent
+ * tints over the dark ground with explicit light text, so they read on-theme. */
+.draft-clock { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--df-white); }
 .draft-clock.inline { font-size: 1.1rem; }
-.draft-clock.low { color: #c0392b; }
-.onclock-banner { padding: 0.75rem 1rem; border-radius: 8px; background: #eef4ff; margin: 0.5rem 0 1rem; }
-.onclock-banner.mine { background: #e7f8ec; border: 2px solid #2ecc71; }
+.draft-clock.low { color: var(--df-danger); }
+.onclock-banner { padding: 0.75rem 1rem; border-radius: var(--r-md); margin: 0.5rem 0 1rem;
+    background: rgba(66,165,245,.10); border: 1px solid rgba(66,165,245,.35); color: var(--df-white); }
+.onclock-banner strong { color: var(--df-white); }
+.onclock-banner.mine { background: rgba(22,163,74,.16); border: 2px solid var(--df-green-500); }
 .pool-filters { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0.5rem 0; }
-.pool-chip { display: inline-block; padding: 0.3rem 0.7rem; border-radius: 999px; border: 1px solid #bbb;
-    text-decoration: none; color: inherit; font-size: 0.9rem; }
-.pool-chip.active { background: #2d6cdf; color: #fff; border-color: #2d6cdf; }
+.pool-chip { display: inline-block; padding: 0.3rem 0.7rem; border-radius: 999px; border: 1px solid var(--df-border);
+    text-decoration: none; color: var(--df-silver); background: transparent; font-size: 0.9rem; }
+.pool-chip:hover { color: var(--df-white); border-color: var(--df-green-600); }
+.pool-chip.active { background: var(--df-green-600); color: #fff; border-color: var(--df-green-500); }
 .pool-table { width: 100%; border-collapse: collapse; }
-.pool-table th, .pool-table td { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid #eee; }
-.pool-scroll { max-height: 60vh; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; }
+.pool-table th, .pool-table td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid rgba(52,67,58,.5); }
+.pool-scroll { max-height: 60vh; overflow-y: auto; border: 1px solid var(--df-border); border-radius: var(--r-sm); }
 .pool-table td.actions { white-space: nowrap; }
 .needs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
-.need-pill { padding: 0.25rem 0.6rem; border-radius: 6px; background: #f1f1f1; font-size: 0.9rem; }
-.need-pill.met { background: #e7f8ec; }
-.need-pill.open { background: #fff3cd; }
+.need-pill { padding: 0.25rem 0.6rem; border-radius: var(--r-sm); font-size: 0.9rem;
+    background: rgba(255,255,255,.06); border: 1px solid var(--df-border); color: var(--df-silver); }
+.need-pill.met { background: rgba(22,163,74,.16); border-color: rgba(22,163,74,.5); color: #bfeecd; }
+.need-pill.open { background: rgba(228,166,43,.14); border-color: rgba(228,166,43,.5); color: #f2d492; }
 .status-flag { display: inline-block; padding: 0 0.35rem; margin-left: 0.15rem; border-radius: 4px;
-    background: #fdecea; color: #c0392b; font-size: 0.7rem; font-weight: 700; vertical-align: middle; }
-.fix-banner { padding: 0.6rem 0.9rem; border-radius: 8px; background: #fff3cd; border: 1px solid #e0c65a;
-    margin: 0.5rem 0 1rem; }
+    background: rgba(217,72,65,.18); color: #ffb3ba; font-size: 0.7rem; font-weight: 700; vertical-align: middle; }
+.fix-banner { padding: 0.6rem 0.9rem; border-radius: var(--r-md); margin: 0.5rem 0 1rem;
+    background: rgba(228,166,43,.14); border: 1px solid rgba(228,166,43,.5); color: var(--df-white); }
+.fix-banner strong { color: #f2d492; }
 .queue-actions { white-space: nowrap; }
 .queue-actions form { display: inline; }
 .queue-actions button { min-width: 2rem; }
 .tag { display: inline-block; padding: 0 0.35rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700; vertical-align: middle; }
-.tag-auto { background: #e8e0ff; color: #5b3fbf; }
+.tag-auto { background: rgba(212,175,55,.18); color: var(--df-gold); border: 1px solid rgba(212,175,55,.4); }
 .dot { font-size: 0.85rem; line-height: 1; }
-.dot.on { color: #2ecc71; }
-.dot.off { color: #c0392b; }
-.away-note { color: #c0392b; font-size: 0.85em; }
-.grid-scroll { overflow-x: auto; border: 1px solid #eee; border-radius: 6px; }
-.draft-grid { border-collapse: collapse; font-size: 0.8rem; }
-.draft-grid th, .draft-grid td { border: 1px solid #eee; padding: 0.3rem 0.45rem; text-align: left; vertical-align: top; white-space: nowrap; }
-.draft-grid thead th { background: #f6f8fc; position: sticky; top: 0; }
-.draft-grid th.round-col, .draft-grid td.round-col { background: #f6f8fc; font-weight: 700; text-align: center; }
-.draft-grid td.filled { background: #fff; }
-.draft-grid td.empty { color: #bbb; }
-.draft-grid td.onclock { background: #fff3cd; outline: 2px solid #e0c65a; }
-.draft-grid .cell-pos { color: #888; }
+.dot.on { color: var(--df-green-500); }
+.dot.off { color: var(--df-danger); }
+.away-note { color: #ffb3ba; font-size: 0.85em; }
+.grid-scroll { overflow-x: auto; border: 1px solid var(--df-border); border-radius: var(--r-sm); }
+.draft-grid { border-collapse: collapse; font-size: 0.8rem; background: transparent; }
+.draft-grid th, .draft-grid td { border: 1px solid rgba(52,67,58,.5); padding: 0.3rem 0.45rem;
+    text-align: left; vertical-align: top; white-space: nowrap; color: var(--df-silver); }
+.draft-grid thead th { background: #0e1712; color: var(--df-muted); position: sticky; top: 0; }
+.draft-grid th.round-col, .draft-grid td.round-col { background: #0e1712; color: var(--df-white); font-weight: 700; text-align: center; }
+.draft-grid td.filled { background: transparent; color: var(--df-white); }
+.draft-grid td.empty { color: var(--df-muted); }
+.draft-grid td.onclock { background: rgba(228,166,43,.16); outline: 2px solid var(--df-warning); color: var(--df-white); }
+.draft-grid .cell-pos { color: var(--df-muted); }
 .draft-grid .cell-fix { font-size: 0.7rem; }
 </style>
 
