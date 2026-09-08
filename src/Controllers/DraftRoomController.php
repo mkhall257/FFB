@@ -13,6 +13,7 @@ use FFB\Http\Request;
 use FFB\Http\Response;
 use FFB\Http\Session;
 use FFB\LeagueRepository;
+use FFB\LeagueSettingsRepository;
 use FFB\PlayerRepository;
 use FFB\TeamRepository;
 use FFB\View;
@@ -27,6 +28,9 @@ final class DraftRoomController
     /** Draft states in which a Manager may build their Queue. */
     private const QUEUE_OPEN_STATES = ['ready', 'live', 'paused'];
 
+    /** Positions a Manager can filter the available pool by, in draft-value order. */
+    private const FILTER_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+
     public function __construct(
         private readonly DraftService $service,
         private readonly DraftRepository $drafts,
@@ -35,6 +39,7 @@ final class DraftRoomController
         private readonly TeamRepository $teams,
         private readonly PlayerRepository $players,
         private readonly LeagueRepository $leagues,
+        private readonly LeagueSettingsRepository $settings,
         private readonly View $view,
     ) {
     }
@@ -44,14 +49,16 @@ final class DraftRoomController
         $flash = $session->get('flash');
         $session->remove('flash');
 
-        // Polling drives the clock: any load of the room resolves an expired
-        // pick (see ADR-0003, ADR-0007).
+        // Polling drives the clock: any load of the room resolves a pre-staged
+        // auto-start whose time has arrived, then an expired pick (ADR-0003,
+        // ADR-0007).
+        $this->service->startScheduledIfDue();
         $draft = $this->drafts->find($this->leagues->currentLeagueId(), $this->leagues->currentSeasonId());
         if ($draft !== null) {
             $this->service->processExpiryIfDue($draft);
         }
 
-        return $this->renderRoom($session, is_string($flash) ? $flash : null, null);
+        return $this->renderRoom($request, $session, is_string($flash) ? $flash : null, null);
     }
 
     public function pick(Request $request, Session $session): Response
@@ -61,18 +68,18 @@ final class DraftRoomController
 
         $draft = $this->drafts->find($leagueId, $seasonId);
         if ($draft === null) {
-            return $this->renderRoom($session, null, 'There is no draft yet.', 409);
+            return $this->renderRoom($request, $session, null, 'There is no draft yet.', 409);
         }
 
         $team = $this->teams->findByUser($leagueId, $seasonId, (int) $session->get('user_id'));
         if ($team === null) {
-            return $this->renderRoom($session, null, 'You do not manage a team in this draft.', 403);
+            return $this->renderRoom($request, $session, null, 'You do not manage a team in this draft.', 403);
         }
 
         try {
             $this->service->pick($draft, (int) $team['id'], (string) $request->input('player_id', ''), 'manual');
         } catch (DraftPickException $e) {
-            return $this->renderRoom($session, null, $e->getMessage(), $e->status);
+            return $this->renderRoom($request, $session, null, $e->getMessage(), $e->status);
         }
 
         // If the next Team(s) are in Auto-draft mode, let them pick through.
@@ -84,14 +91,14 @@ final class DraftRoomController
 
     public function addToQueue(Request $request, Session $session): Response
     {
-        [$draft, $team, $error] = $this->queueContext($session);
+        [$draft, $team, $error] = $this->queueContext($request, $session);
         if ($error !== null) {
             return $error;
         }
 
         $playerId = trim((string) $request->input('player_id', ''));
         if ($playerId === '' || !$this->players->isDraftable($playerId)) {
-            return $this->renderRoom($session, null, 'That player cannot be queued.', 400);
+            return $this->renderRoom($request, $session, null, 'That player cannot be queued.', 400);
         }
 
         $ids = $this->queues->playerIds((int) $draft['id'], (int) $team['id']);
@@ -105,7 +112,7 @@ final class DraftRoomController
 
     public function removeFromQueue(Request $request, Session $session): Response
     {
-        [$draft, $team, $error] = $this->queueContext($session);
+        [$draft, $team, $error] = $this->queueContext($request, $session);
         if ($error !== null) {
             return $error;
         }
@@ -122,7 +129,7 @@ final class DraftRoomController
 
     public function reorderQueue(Request $request, Session $session): Response
     {
-        [$draft, $team, $error] = $this->queueContext($session);
+        [$draft, $team, $error] = $this->queueContext($request, $session);
         if ($error !== null) {
             return $error;
         }
@@ -134,7 +141,7 @@ final class DraftRoomController
         foreach ($submitted as $value) {
             $playerId = trim((string) $value);
             if ($playerId === '' || !$this->players->isDraftable($playerId)) {
-                return $this->renderRoom($session, null, 'That queue contains a player who cannot be drafted.', 400);
+                return $this->renderRoom($request, $session, null, 'That queue contains a player who cannot be drafted.', 400);
             }
             if (!in_array($playerId, $clean, true)) {
                 $clean[] = $playerId;
@@ -152,45 +159,60 @@ final class DraftRoomController
      *
      * @return array{0:array<string,mixed>|null,1:array<string,mixed>|null,2:Response|null}
      */
-    private function queueContext(Session $session): array
+    private function queueContext(Request $request, Session $session): array
     {
         $leagueId = $this->leagues->currentLeagueId();
         $seasonId = $this->leagues->currentSeasonId();
 
         $draft = $this->drafts->find($leagueId, $seasonId);
         if ($draft === null || !in_array($draft['state'], self::QUEUE_OPEN_STATES, true)) {
-            return [null, null, $this->renderRoom($session, null, 'The queue is not open right now.', 409)];
+            return [null, null, $this->renderRoom($request, $session, null, 'The queue is not open right now.', 409)];
         }
 
         $team = $this->teams->findByUser($leagueId, $seasonId, (int) $session->get('user_id'));
         if ($team === null) {
-            return [null, null, $this->renderRoom($session, null, 'You do not manage a team in this draft.', 403)];
+            return [null, null, $this->renderRoom($request, $session, null, 'You do not manage a team in this draft.', 403)];
         }
 
         return [$draft, $team, null];
     }
 
-    private function renderRoom(Session $session, ?string $flash, ?string $error, int $status = 200): Response
+    private function renderRoom(Request $request, Session $session, ?string $flash, ?string $error, int $status = 200): Response
     {
         $leagueId = $this->leagues->currentLeagueId();
         $seasonId = $this->leagues->currentSeasonId();
         $draft = $this->drafts->find($leagueId, $seasonId);
         $myTeam = $this->teams->findByUser($leagueId, $seasonId, (int) $session->get('user_id'));
 
+        // The Manager's position/name filter on the available pool (echoed back
+        // to the view so the controls stay set across the room's auto-refresh).
+        $filterPos = strtoupper(trim((string) ($request->query['pos'] ?? '')));
+        if (!in_array($filterPos, self::FILTER_POSITIONS, true)) {
+            $filterPos = '';
+        }
+        $filterQ = trim((string) ($request->query['q'] ?? ''));
+
         $board = [];
         $available = [];
         $myQueue = [];
         $onClockTeamId = null;
         $myTurn = false;
+        $secondsLeft = null;
+        $myRosterCounts = [];
 
-        if ($draft !== null && in_array($draft['state'], ['live', 'paused', 'complete'], true)) {
+        if ($draft !== null && in_array($draft['state'], ['live', 'paused', 'complete', 'aborted'], true)) {
             $board = $this->picks->board((int) $draft['id']);
         }
 
         if ($draft !== null && in_array($draft['state'], self::QUEUE_OPEN_STATES, true)) {
-            $available = $this->players->availableForDraft((int) $draft['id']);
+            $available = $this->players->availableForDraft(
+                (int) $draft['id'],
+                $filterQ !== '' ? $filterQ : null,
+                $filterPos !== '' ? $filterPos : null,
+            );
             if ($myTeam !== null) {
                 $myQueue = $this->queues->queued((int) $draft['id'], (int) $myTeam['id']);
+                $myRosterCounts = $this->picks->rosterPositionCounts((int) $draft['id'], (int) $myTeam['id']);
             }
         }
 
@@ -198,7 +220,16 @@ final class DraftRoomController
             $current = $this->picks->findByOverall((int) $draft['id'], (int) $draft['current_pick_no']);
             $onClockTeamId = $current !== null ? (int) $current['team_id'] : null;
             $myTurn = $myTeam !== null && $onClockTeamId === (int) $myTeam['id'];
+
+            if ($draft['current_deadline'] !== null) {
+                $secondsLeft = max(0, strtotime((string) $draft['current_deadline']) - time());
+            }
         }
+
+        // Target roster shape, so a Manager can see the slots they still need to
+        // fill (e.g. "K 0/1, DEF 0/1") while drafting.
+        $settings = $this->settings->all($leagueId, $seasonId);
+        $rosterShape = $this->rosterShape($settings);
 
         $isCommissioner = $session->get('role') === 'commissioner';
         $order = $draft !== null && $isCommissioner ? $this->drafts->order((int) $draft['id']) : [];
@@ -212,6 +243,12 @@ final class DraftRoomController
                 'myTeam' => $myTeam,
                 'onClockTeamId' => $onClockTeamId,
                 'myTurn' => $myTurn,
+                'secondsLeft' => $secondsLeft,
+                'myRosterCounts' => $myRosterCounts,
+                'rosterShape' => $rosterShape,
+                'filterPositions' => self::FILTER_POSITIONS,
+                'filterPos' => $filterPos,
+                'filterQ' => $filterQ,
                 'isCommissioner' => $isCommissioner,
                 'order' => $order,
                 'flash' => $flash,
@@ -219,5 +256,29 @@ final class DraftRoomController
             ], '', '', 'layout_app'),
             $status,
         );
+    }
+
+    /**
+     * The starter slots the roster shape asks for, per position, for the
+     * draft-room "still needed" summary. FLEX and bench are shown separately as a
+     * flexible pool since any skill position can fill them.
+     *
+     * @param array<string,string> $settings
+     * @return array{QB:int,RB:int,WR:int,TE:int,K:int,DEF:int,FLEX:int,BENCH:int}
+     */
+    private function rosterShape(array $settings): array
+    {
+        $slot = static fn (string $key): int => (int) ($settings['roster.' . $key] ?? 0);
+
+        return [
+            'QB' => $slot('qb'),
+            'RB' => $slot('rb'),
+            'WR' => $slot('wr'),
+            'TE' => $slot('te'),
+            'K' => $slot('k'),
+            'DEF' => $slot('def'),
+            'FLEX' => $slot('flex'),
+            'BENCH' => $slot('bench'),
+        ];
     }
 }

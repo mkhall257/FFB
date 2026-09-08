@@ -4,11 +4,17 @@
  *
  * @var array<string,mixed>|null $draft
  * @var list<array<string,mixed>> $board       full pick board (overall_pick, team_name, player_name, ...)
- * @var list<array<string,mixed>> $available   undrafted players, best first
+ * @var list<array<string,mixed>> $available   undrafted players (filtered), best first
  * @var list<array<string,mixed>> $myQueue      the viewer's personal queue, in rank order
  * @var array<string,mixed>|null $myTeam        the viewer's team, or null
  * @var int|null $onClockTeamId
  * @var bool $myTurn
+ * @var int|null $secondsLeft                    seconds left on the current pick clock, or null
+ * @var array<string,int> $myRosterCounts        the viewer's drafted counts, position => count
+ * @var array<string,int> $rosterShape           target slots: QB/RB/WR/TE/K/DEF/FLEX/BENCH => count
+ * @var list<string> $filterPositions            the position filter buttons, in order
+ * @var string $filterPos                        the active position filter ('' = all)
+ * @var string $filterQ                          the active name search ('' = none)
  * @var bool $isCommissioner
  * @var list<array<string,mixed>> $order   draft order rows (commissioner only)
  * @var string|null $flash
@@ -22,12 +28,52 @@ foreach ($board as $row) {
         break;
     }
 }
+$onClockName = $onClock !== null ? (string) $onClock['team_name'] : '—';
 $made = array_values(array_filter($board, static fn ($r) => $r['player_id'] !== null));
 $recent = array_slice(array_reverse($made), 0, 10);
+
+$poolOpen = in_array($state, ['ready', 'live', 'paused'], true);
+$showPool = $poolOpen && ($myTeam !== null || ($isCommissioner && $state === 'live'));
+
+// Build a /draft URL that keeps the other filter set when one changes.
+$filterUrl = static function (?string $pos, ?string $q): string {
+    $params = [];
+    if ($pos !== null && $pos !== '') {
+        $params['pos'] = $pos;
+    }
+    if ($q !== null && $q !== '') {
+        $params['q'] = $q;
+    }
+    return '/draft' . ($params === [] ? '' : '?' . http_build_query($params));
+};
 ?>
-<?php if ($state === 'live' && !$myTurn && !$isCommissioner): ?>
-    <script>setTimeout(function () { location.reload(); }, 2500);</script>
+<?php if ($state === 'live' && !$myTurn): ?>
+    <?php // Poll so managers/commissioner see picks land and the clock move; paused while typing a search (see script). ?>
+    <script>window.FFB_DRAFT_POLL = 2500;</script>
+<?php elseif ($state === 'ready' && !empty($draft['scheduled_at'])): ?>
+    <?php // Poll so the pre-staged auto-start fires (and everyone lands in the live room) at the scheduled time. ?>
+    <script>window.FFB_DRAFT_POLL = 15000;</script>
 <?php endif; ?>
+
+<style>
+.draft-clock { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.draft-clock.low { color: #c0392b; }
+.onclock-banner { padding: 0.75rem 1rem; border-radius: 8px; background: #eef4ff; margin: 0.5rem 0 1rem; }
+.onclock-banner.mine { background: #e7f8ec; border: 2px solid #2ecc71; }
+.pool-filters { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0.5rem 0; }
+.pool-chip { display: inline-block; padding: 0.3rem 0.7rem; border-radius: 999px; border: 1px solid #bbb;
+    text-decoration: none; color: inherit; font-size: 0.9rem; }
+.pool-chip.active { background: #2d6cdf; color: #fff; border-color: #2d6cdf; }
+.pool-table { width: 100%; border-collapse: collapse; }
+.pool-table th, .pool-table td { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid #eee; }
+.pool-scroll { max-height: 60vh; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; }
+.pool-table td.actions { white-space: nowrap; }
+.needs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
+.need-pill { padding: 0.25rem 0.6rem; border-radius: 6px; background: #f1f1f1; font-size: 0.9rem; }
+.need-pill.met { background: #e7f8ec; }
+.need-pill.open { background: #fff3cd; }
+</style>
+
 <h1>Draft room</h1>
 <p><a href="/">Home</a></p>
 
@@ -35,9 +81,18 @@ $recent = array_slice(array_reverse($made), 0, 10);
 <?php if (!empty($error)): ?><p role="alert"><?= e($error) ?></p><?php endif; ?>
 
 <?php if ($draft === null || $state === 'setup' || $state === 'ready'): ?>
-    <p>The draft hasn't started yet.<?= $state === 'ready' ? ' It has been finalized — hang tight for the commissioner to start it.' : '' ?></p>
-<?php elseif ($state === 'complete'): ?>
-    <p>The draft is complete. Final rosters below.</p>
+    <?php if ($state === 'ready' && !empty($draft['scheduled_at'])): ?>
+        <p>The draft is set to start automatically on
+            <strong><?= e(date('D M j, Y \a\t g:i A', strtotime((string) $draft['scheduled_at']))) ?></strong>.
+            This page will bring you in when it does.</p>
+    <?php else: ?>
+        <p>The draft hasn't started yet.<?= $state === 'ready' ? ' It has been finalized — hang tight for the commissioner to start it.' : '' ?></p>
+    <?php endif; ?>
+<?php elseif ($state === 'aborted' || $state === 'complete'): ?>
+    <?php $done = $state === 'complete'; ?>
+    <p><?= $done
+        ? 'The draft is complete. Final rosters below.'
+        : 'The draft was stopped by the commissioner. The picks made before it stopped are shown below.' ?></p>
     <?php
     $rostersByTeam = [];
     foreach ($board as $row) {
@@ -57,35 +112,100 @@ $recent = array_slice(array_reverse($made), 0, 10);
         <?php endforeach; ?>
     </div>
 <?php else: ?>
-    <p>
-        Status: <strong><?= e($state) ?></strong>.
-        On the clock: <strong><?= e($onClock !== null ? (string) $onClock['team_name'] : '—') ?></strong>
-        (pick <?= (int) ($draft['current_pick_no'] ?? 0) ?>).
-    </p>
+    <?php // Live or paused. ?>
+    <div class="onclock-banner<?= $myTurn ? ' mine' : '' ?>">
+        <?php if ($state === 'paused'): ?>
+            <strong>The draft is paused by the commissioner.</strong>
+        <?php elseif ($myTurn): ?>
+            <strong>You're on the clock — make your pick!</strong>
+        <?php else: ?>
+            On the clock: <strong><?= e($onClockName) ?></strong> (pick <?= (int) ($draft['current_pick_no'] ?? 0) ?>)
+        <?php endif; ?>
+        <?php if ($state === 'live' && $secondsLeft !== null): ?>
+            <div class="draft-clock" data-seconds-left="<?= (int) $secondsLeft ?>">--:--</div>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
 
-    <?php if ($state === 'live' && $myTurn): ?>
-        <h2>You're on the clock — make your pick</h2>
-        <form method="post" action="/draft/pick">
-            <select name="player_id" required>
-                <?php foreach ($available as $p): ?>
-                    <option value="<?= e((string) $p['sleeper_id']) ?>">
-                        <?= e((string) $p['full_name']) ?> (<?= e((string) $p['position']) ?><?= $p['nfl_team'] !== null ? ', ' . e((string) $p['nfl_team']) : '' ?>)
-                    </option>
-                <?php endforeach; ?>
-            </select>
-            <button type="submit">Draft player</button>
-        </form>
-    <?php elseif ($state === 'live'): ?>
-        <p>Waiting for <?= e($onClock !== null ? (string) $onClock['team_name'] : 'the next team') ?> to pick&hellip;</p>
-    <?php elseif ($state === 'paused'): ?>
-        <p>The draft is paused by the commissioner.</p>
+<?php if ($myTeam !== null && $poolOpen): ?>
+    <h2>My roster so far</h2>
+    <div class="needs">
+        <?php foreach (['QB', 'RB', 'WR', 'TE', 'K', 'DEF'] as $pos): ?>
+            <?php
+            $have = (int) ($myRosterCounts[$pos] ?? 0);
+            $need = (int) ($rosterShape[$pos] ?? 0);
+            $cls = $need === 0 ? '' : ($have >= $need ? 'met' : 'open');
+            ?>
+            <span class="need-pill <?= $cls ?>"><?= e($pos) ?>: <?= $have ?><?= $need > 0 ? ' / ' . $need : '' ?></span>
+        <?php endforeach; ?>
+        <?php if ((int) ($rosterShape['FLEX'] ?? 0) > 0): ?>
+            <span class="need-pill">FLEX: <?= (int) $rosterShape['FLEX'] ?></span>
+        <?php endif; ?>
+        <?php if ((int) ($rosterShape['BENCH'] ?? 0) > 0): ?>
+            <span class="need-pill">BENCH: <?= (int) $rosterShape['BENCH'] ?></span>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
+
+<?php if ($showPool): ?>
+    <h2>Available players</h2>
+
+    <div class="pool-filters">
+        <a class="pool-chip<?= $filterPos === '' ? ' active' : '' ?>" href="<?= e($filterUrl('', $filterQ)) ?>">All</a>
+        <?php foreach ($filterPositions as $pos): ?>
+            <a class="pool-chip<?= $filterPos === $pos ? ' active' : '' ?>" href="<?= e($filterUrl($pos, $filterQ)) ?>"><?= e($pos) ?></a>
+        <?php endforeach; ?>
+    </div>
+
+    <form method="get" action="/draft" class="pool-filters" role="search">
+        <?php if ($filterPos !== ''): ?><input type="hidden" name="pos" value="<?= e($filterPos) ?>"><?php endif; ?>
+        <input type="search" name="q" id="pool-search" value="<?= e($filterQ) ?>"
+               placeholder="Search by player or team (e.g. Mahomes, SF)…" autocomplete="off">
+        <button type="submit">Search</button>
+        <?php if ($filterQ !== ''): ?><a class="pool-chip" href="<?= e($filterUrl($filterPos, '')) ?>">Clear</a><?php endif; ?>
+    </form>
+
+    <?php if ($available === []): ?>
+        <p>No available players match
+            <?= $filterPos !== '' ? 'position ' . e($filterPos) : 'that' ?><?= $filterQ !== '' ? ' and "' . e($filterQ) . '"' : '' ?>.</p>
+    <?php else: ?>
+        <div class="pool-scroll">
+            <form method="post">
+                <table class="pool-table">
+                    <thead><tr><th>Rank</th><th>Player</th><th>Pos</th><th>Team</th><th></th></tr></thead>
+                    <tbody>
+                    <?php foreach ($available as $p): $pid = (string) $p['sleeper_id']; ?>
+                        <tr>
+                            <td><?= $p['search_rank'] !== null ? (int) $p['search_rank'] : '—' ?></td>
+                            <td><?= e((string) $p['full_name']) ?></td>
+                            <td><?= e((string) $p['position']) ?></td>
+                            <td><?= $p['nfl_team'] !== null ? e((string) $p['nfl_team']) : '—' ?></td>
+                            <td class="actions">
+                                <?php if ($myTurn): ?>
+                                    <button formaction="/draft/pick" name="player_id" value="<?= e($pid) ?>">Draft</button>
+                                <?php endif; ?>
+                                <?php if ($myTeam !== null): ?>
+                                    <button formaction="/draft/queue/add" name="player_id" value="<?= e($pid) ?>">+ Queue</button>
+                                <?php endif; ?>
+                                <?php if ($isCommissioner && $state === 'live' && $onClockTeamId !== null): ?>
+                                    <button formaction="/admin/draft/pick-on-behalf" name="player_id" value="<?= e($pid) ?>"
+                                            title="Draft for <?= e($onClockName) ?>">Draft for <?= e($onClockName) ?></button>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </form>
+        </div>
+        <p style="font-size:0.85em; color:#666"><?= count($available) ?> available, best first. Use a position filter or search (by player name or team) to narrow it down.</p>
     <?php endif; ?>
 <?php endif; ?>
 
-<?php if ($myTeam !== null && ($draft !== null && in_array($state, ['ready', 'live', 'paused'], true))): ?>
+<?php if ($myTeam !== null && $poolOpen): ?>
     <h2>My queue</h2>
     <?php if ($myQueue === []): ?>
-        <p>Your queue is empty. Add players below — they drive your auto-pick if your timer runs out.</p>
+        <p>Your queue is empty. Add players from the list above — they drive your auto-pick if your timer runs out.</p>
     <?php else: ?>
         <ol>
             <?php foreach ($myQueue as $q): ?>
@@ -98,19 +218,6 @@ $recent = array_slice(array_reverse($made), 0, 10);
                 </li>
             <?php endforeach; ?>
         </ol>
-    <?php endif; ?>
-
-    <?php if ($available !== []): ?>
-        <form method="post" action="/draft/queue/add">
-            <select name="player_id" required>
-                <?php foreach ($available as $p): ?>
-                    <option value="<?= e((string) $p['sleeper_id']) ?>">
-                        <?= e((string) $p['full_name']) ?> (<?= e((string) $p['position']) ?>)
-                    </option>
-                <?php endforeach; ?>
-            </select>
-            <button type="submit">Add to queue</button>
-        </form>
     <?php endif; ?>
 <?php endif; ?>
 
@@ -126,23 +233,15 @@ $recent = array_slice(array_reverse($made), 0, 10);
             <input type="hidden" name="seconds" value="30"><button type="submit">+30s</button>
         </form>
         <form method="post" action="/admin/draft/undo-last" style="display:inline"><button type="submit">Undo last pick</button></form>
+        <form method="post" action="/admin/draft/abort" style="display:inline"
+              onsubmit="return confirm('Stop the draft now? Picks made so far are kept, but no more picks can happen.') &amp;&amp; confirm('Are you sure you want to stop the draft?')">
+            <button type="submit">Stop draft</button>
+        </form>
         <form method="post" action="/admin/draft/reset" style="display:inline"
               onsubmit="return confirm('Really reset the whole draft? This wipes every pick.') &amp;&amp; confirm('Are you absolutely sure?')">
             <button type="submit">Reset draft</button>
         </form>
     </p>
-
-    <?php if ($state === 'live'): ?>
-        <form method="post" action="/admin/draft/pick-on-behalf">
-            Pick for the team on the clock:
-            <select name="player_id" required>
-                <?php foreach ($available as $p): ?>
-                    <option value="<?= e((string) $p['sleeper_id']) ?>"><?= e((string) $p['full_name']) ?> (<?= e((string) $p['position']) ?>)</option>
-                <?php endforeach; ?>
-            </select>
-            <button type="submit">Draft for them</button>
-        </form>
-    <?php endif; ?>
 
     <?php if ($order !== []): ?>
         <h3>Auto-draft teams</h3>
@@ -196,3 +295,36 @@ $recent = array_slice(array_reverse($made), 0, 10);
         </tbody>
     </table>
 <?php endif; ?>
+
+<script>
+(function () {
+    // Live pick-clock countdown, ticking from the server's remaining seconds.
+    var clock = document.querySelector('.draft-clock[data-seconds-left]');
+    if (clock) {
+        var left = parseInt(clock.getAttribute('data-seconds-left'), 10) || 0;
+        var render = function () {
+            if (left <= 0) { clock.textContent = "Time's up"; clock.classList.add('low'); return; }
+            var m = Math.floor(left / 60), s = left % 60;
+            clock.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+            clock.classList.toggle('low', left <= 10);
+        };
+        render();
+        setInterval(function () { if (left > 0) { left--; render(); } }, 1000);
+    }
+
+    // Auto-refresh the room, but never interrupt a manager mid-search: if the
+    // search box is focused, wait for the next tick instead of reloading.
+    var poll = window.FFB_DRAFT_POLL;
+    if (poll) {
+        var tick = function () {
+            var search = document.getElementById('pool-search');
+            if (search && document.activeElement === search) {
+                setTimeout(tick, poll);
+                return;
+            }
+            location.reload();
+        };
+        setTimeout(tick, poll);
+    }
+}());
+</script>

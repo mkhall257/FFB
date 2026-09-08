@@ -74,7 +74,7 @@ final class Kernel
         $draftService = new DraftService($pdo, $drafts, $draftPicks, $players, $autoPick, $rosters, $settings, $leagues, $schedule);
 
         $draft = new DraftController($pdo, $drafts, $draftPicks, $draftService, $settings, $teams, $players, $rosters, $leagues, $matchups, $view);
-        $draftRoom = new DraftRoomController($draftService, $drafts, $draftPicks, $draftQueues, $teams, $players, $leagues, $view);
+        $draftRoom = new DraftRoomController($draftService, $drafts, $draftPicks, $draftQueues, $teams, $players, $leagues, $settings, $view);
         $standings = new StandingsController(new StandingsService($pdo), $teams, $leagues, $view);
         $matchupDetail = new MatchupDetailService(
             $matchups, $lineupRepo, new PlayerWeekStatsRepository($pdo), $players, new ScoringEngine(), $settings,
@@ -152,6 +152,7 @@ final class Kernel
         $router->post('/admin/draft/auto-draft', [$draft, 'toggleAutoDraft'], 'commissioner');
         $router->post('/admin/draft/correct-pick', [$draft, 'correctPick'], 'commissioner');
         $router->post('/admin/draft/undo-last', [$draft, 'undoLast'], 'commissioner');
+        $router->post('/admin/draft/abort', [$draft, 'abort'], 'commissioner');
         $router->post('/admin/draft/reset', [$draft, 'reset'], 'commissioner');
 
         $router->get('/draft', [$draftRoom, 'index'], 'authenticated');

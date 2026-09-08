@@ -39,6 +39,87 @@ final class DraftService
     }
 
     /**
+     * Put a finalized (Ready) Draft Live: generate the pick board from the draft
+     * order and roster shape, then set the first Team on the clock. One path for
+     * both the Commissioner's manual "go live" and the scheduled auto-start.
+     *
+     * @param array<string,mixed> $draft the current drafts row
+     * @throws DraftPickException when the Draft cannot be started
+     */
+    public function start(array $draft): void
+    {
+        if (($draft['state'] ?? null) !== 'ready') {
+            throw new DraftPickException(409, 'Finalize the draft order before starting it.');
+        }
+
+        $leagueId = $this->leagues->currentLeagueId();
+        $seasonId = $this->leagues->currentSeasonId();
+
+        $order = $this->drafts->orderTeamIds((int) $draft['id']);
+        $rounds = $this->rounds($this->settings->all($leagueId, $seasonId));
+        if ($rounds < 1) {
+            throw new DraftPickException(400, 'Set a roster shape before starting the draft.');
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            $this->picks->generateBoard((int) $draft['id'], $order, $rounds);
+            $this->drafts->start((int) $draft['id'], (int) $draft['pick_seconds']);
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Auto-start the Season's Draft if the Commissioner pre-staged a date/time
+     * that has now arrived. Only a finalized (Ready) Draft with a due
+     * scheduled_at goes Live; anything else is left untouched. Poll-driven, like
+     * expiry: any relevant page load (or the cron tick) resolves it.
+     *
+     * @return bool whether the Draft was started
+     */
+    public function startScheduledIfDue(): bool
+    {
+        $draft = $this->drafts->find(
+            $this->leagues->currentLeagueId(),
+            $this->leagues->currentSeasonId(),
+        );
+        if ($draft === null || $draft['state'] !== 'ready') {
+            return false;
+        }
+
+        $scheduled = $draft['scheduled_at'] ?? null;
+        if ($scheduled === null || strtotime((string) $scheduled) > time()) {
+            return false;
+        }
+
+        try {
+            $this->start($draft);
+        } catch (DraftPickException) {
+            // Not startable yet (e.g. no roster shape). Leave it Ready — the
+            // Commissioner sees the reason when they open the draft page.
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Total Draft rounds = starter slots + bench, from the roster shape.
+     *
+     * @param array<string,string> $settings
+     */
+    private function rounds(array $settings): int
+    {
+        $slot = static fn (string $key): int => (int) ($settings['roster.' . $key] ?? 0);
+
+        return $slot('qb') + $slot('rb') + $slot('wr') + $slot('te')
+            + $slot('flex') + $slot('k') + $slot('def') + $slot('bench');
+    }
+
+    /**
      * If the pick on the clock has timed out and the Commissioner has left
      * expiry Auto-pick enabled, make the Auto-pick for the on-the-clock Team.
      * With the toggle off, an expired timer simply leaves the Team on the clock.

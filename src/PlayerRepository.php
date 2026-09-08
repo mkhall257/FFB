@@ -158,13 +158,39 @@ final class PlayerRepository
 
     /**
      * Draftable Players not yet taken in the given Draft, ordered by Sleeper
-     * rank (unranked last), then name. The best available first.
+     * rank (unranked last), then name — best available first. Optionally filtered
+     * to a single position and/or a name search, so the draft room can show, for
+     * example, just the remaining defenses or every player matching "smith".
      *
+     * A position filter is essential for the lower-volume slots (K, DEF): they
+     * rank below the deep skill-player pool, so without it they fall past any
+     * result limit and never appear. The search matches a Player's name or NFL
+     * team, so a Manager can find a defense by its team (e.g. "SF" or
+     * "San Francisco") as well as a skill player by name.
+     *
+     * @param int|null $limit cap the rows returned, or null for the full pool
      * @return list<array<string,mixed>>
      */
-    public function availableForDraft(int $draftId, int $limit = 300): array
-    {
-        $limit = max(1, $limit);
+    public function availableForDraft(
+        int $draftId,
+        ?string $search = null,
+        ?string $position = null,
+        ?int $limit = null,
+    ): array {
+        $params = [$draftId];
+        $where = '';
+
+        if ($position !== null && in_array($position, self::DRAFTABLE_POSITIONS, true)) {
+            $where .= ' AND p.position = ?';
+            $params[] = $position;
+        }
+        if ($search !== null && trim($search) !== '') {
+            $where .= ' AND (p.full_name LIKE ? OR p.nfl_team LIKE ?)';
+            $like = '%' . trim($search) . '%';
+            $params[] = $like;
+            $params[] = $like;
+        }
+
         $stmt = $this->pdo->prepare(
             'SELECT p.sleeper_id, p.full_name, p.position, p.nfl_team, p.status, p.search_rank'
             . ' FROM players p'
@@ -172,10 +198,13 @@ final class PlayerRepository
             . ' AND NOT EXISTS ('
             . '   SELECT 1 FROM draft_picks dp WHERE dp.draft_id = ? AND dp.player_id = p.sleeper_id'
             . ' )'
+            . $where
             . ' ORDER BY (p.search_rank IS NULL), p.search_rank, p.full_name'
-            . ' LIMIT ' . $limit
+            . ($limit !== null ? ' LIMIT ' . max(1, $limit) : '')
         );
-        $stmt->execute([$draftId]);
+        // Bind order matches the SQL: NOT EXISTS draft_id first, then the
+        // optional position and search filters.
+        $stmt->execute($params);
 
         /** @var list<array<string,mixed>> $rows */
         $rows = $stmt->fetchAll();
@@ -187,17 +216,18 @@ final class PlayerRepository
      * The free-agent pool for a Season: draftable Players with no rosters row
      * this Season (the Add/Drop availability rule, ADR-0010), ordered by Sleeper
      * rank (unranked last), then name — best available first. Optionally filtered
-     * by a name search and/or a single position.
+     * by a single position and/or a search over the Player's name or NFL team (so
+     * a defense is found by its team as well as its name).
      *
+     * @param int|null $limit cap the rows returned, or null for the full pool
      * @return list<array<string,mixed>>
      */
     public function availableForSeason(
         int $seasonId,
         ?string $search = null,
         ?string $position = null,
-        int $limit = 300,
+        ?int $limit = null,
     ): array {
-        $limit = max(1, $limit);
         $params = [$seasonId];
         $where = '';
 
@@ -206,8 +236,10 @@ final class PlayerRepository
             $params[] = $position;
         }
         if ($search !== null && trim($search) !== '') {
-            $where .= ' AND p.full_name LIKE ?';
-            $params[] = '%' . trim($search) . '%';
+            $where .= ' AND (p.full_name LIKE ? OR p.nfl_team LIKE ?)';
+            $like = '%' . trim($search) . '%';
+            $params[] = $like;
+            $params[] = $like;
         }
 
         $stmt = $this->pdo->prepare(
@@ -219,7 +251,7 @@ final class PlayerRepository
             . ' )'
             . $where
             . ' ORDER BY (p.search_rank IS NULL), p.search_rank, p.full_name'
-            . ' LIMIT ' . $limit
+            . ($limit !== null ? ' LIMIT ' . max(1, $limit) : '')
         );
         // Bind order matches the SQL: NOT EXISTS season_id first, then the
         // optional position and search filters.

@@ -44,9 +44,14 @@ $rounds = $starters + $slot('bench');
         <input type="checkbox" name="autopick_on_expiry" value="1"<?= $autopick ? ' checked' : '' ?>>
         Auto-pick when the timer runs out (off = the Team stays on the clock)
     </label>
-    <label>Draft date &amp; time (optional, display only)
+    <label>Draft date &amp; time (optional — auto-starts the draft)
         <input type="datetime-local" name="scheduled_at" value="<?= e($scheduledAt) ?>">
     </label>
+    <p style="margin:0.25rem 0 0.75rem; font-size:0.9em">
+        Set a date/time and <strong>finalize the draft</strong> to pre-stage it: the draft goes live on its own
+        when that time arrives. Leave blank to start it by hand. A draft still in setup at that time won't
+        start (finalize it first).
+    </p>
 
     <h2>Roster shape</h2>
     <?php foreach ($slots as $s): ?>
@@ -77,6 +82,16 @@ $rounds = $starters + $slot('bench');
             <button type="submit">Start draft (go live)</button>
         </form>
     <?php endif; ?>
+
+    <?php // Clear the draft results and return to setup so a new draft can be run. Reachable
+          // in any locked state — including a completed or stopped draft. ?>
+    <h2 style="margin-top:1.5rem">Start over</h2>
+    <p>Clear the draft results (pick board and drafted rosters) and return to setup so you can run a new draft.
+        Teams and manager logins are kept.</p>
+    <form method="post" action="/admin/draft/reset"
+          onsubmit="return confirm('Reset the draft? This clears every pick and the drafted rosters, then returns to setup.') &amp;&amp; confirm('Are you sure? This cannot be undone.')">
+        <button type="submit">Reset draft (start over)</button>
+    </form>
 <?php else: ?>
     <form method="post" action="/admin/draft/order/randomize">
         <button type="submit"<?= count($teams) < 2 ? ' disabled' : '' ?>>Randomize order</button>

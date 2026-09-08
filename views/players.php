@@ -27,7 +27,7 @@ $full = $rosterSize >= $cap;
     <p>Your roster: <?= (int) $rosterSize ?> / <?= (int) $cap ?><?= $full ? ' (full — you must drop to add)' : '' ?></p>
 
     <form method="get" action="/players">
-        <input type="text" name="q" value="<?= e($search) ?>" placeholder="Search players">
+        <input type="text" name="q" value="<?= e($search) ?>" placeholder="Search by player or team">
         <select name="pos">
             <option value="">All positions</option>
             <?php foreach ($positions as $p): ?>

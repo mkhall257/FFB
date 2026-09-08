@@ -61,6 +61,14 @@ final class DraftController
 
     public function setup(Request $request, Session $session): Response
     {
+        // Opening the setup page resolves a pre-staged auto-start whose time has
+        // arrived (poll-driven, like the draft room and the cron tick).
+        if ($this->service->startScheduledIfDue()) {
+            $session->set('flash', 'The scheduled start time arrived — the draft is now live!');
+
+            return Response::redirect('/draft');
+        }
+
         $flash = $session->get('flash');
         $session->remove('flash');
 
@@ -198,30 +206,15 @@ final class DraftController
 
     public function start(Request $request, Session $session): Response
     {
-        $leagueId = $this->leagues->currentLeagueId();
-        $seasonId = $this->leagues->currentSeasonId();
-        $draft = $this->drafts->currentOrCreate($leagueId, $seasonId);
+        $draft = $this->drafts->currentOrCreate(
+            $this->leagues->currentLeagueId(),
+            $this->leagues->currentSeasonId(),
+        );
 
-        if ($draft['state'] !== 'ready') {
-            return $this->renderSetup(null, 'Finalize the draft order before starting it.', 409);
-        }
-
-        $order = $this->drafts->orderTeamIds((int) $draft['id']);
-        $settings = $this->settings->all($leagueId, $seasonId);
-        $rounds = $this->rounds($settings);
-
-        if ($rounds < 1) {
-            return $this->renderSetup(null, 'Set a roster shape before starting the draft.', 400);
-        }
-
-        $this->pdo->beginTransaction();
         try {
-            $this->picks->generateBoard((int) $draft['id'], $order, $rounds);
-            $this->drafts->start((int) $draft['id'], (int) $draft['pick_seconds']);
-            $this->pdo->commit();
-        } catch (\Throwable $e) {
-            $this->pdo->rollBack();
-            throw $e;
+            $this->service->start($draft);
+        } catch (DraftPickException $e) {
+            return $this->renderSetup(null, $e->getMessage(), $e->status);
         }
 
         $session->set('flash', 'The draft is live!');
@@ -407,6 +400,19 @@ final class DraftController
         return Response::redirect('/admin/draft');
     }
 
+    public function abort(Request $request, Session $session): Response
+    {
+        $draft = $this->currentDraft();
+        if ($draft === null || !in_array($draft['state'], ['live', 'paused'], true)) {
+            return Response::html('Only a draft in progress can be stopped.', 409);
+        }
+
+        $this->drafts->abort((int) $draft['id']);
+        $session->set('flash', 'Draft stopped. The picks made so far are kept — reset the draft to run it again.');
+
+        return Response::redirect('/admin/draft');
+    }
+
     /**
      * @return array<string,mixed>|null
      */
@@ -416,19 +422,6 @@ final class DraftController
             $this->leagues->currentLeagueId(),
             $this->leagues->currentSeasonId(),
         );
-    }
-
-    /**
-     * Total Draft rounds = starter slots + bench, from the roster shape.
-     *
-     * @param array<string,string> $settings
-     */
-    private function rounds(array $settings): int
-    {
-        $slot = static fn (string $key): int => (int) ($settings['roster.' . $key] ?? 0);
-
-        return $slot('qb') + $slot('rb') + $slot('wr') + $slot('te')
-            + $slot('flex') + $slot('k') + $slot('def') + $slot('bench');
     }
 
     /**

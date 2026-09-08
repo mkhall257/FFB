@@ -176,6 +176,21 @@ final class DraftRepository
     }
 
     /**
+     * Permanently stop a Draft in progress. The picks already made are kept as a
+     * record, but the Draft leaves the live lifecycle: no pick on the clock, no
+     * deadline, no banked time. Terminal, like complete — reset to setup to run
+     * the Draft again.
+     */
+    public function abort(int $draftId): void
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE drafts SET state = 'aborted', current_pick_no = NULL,"
+            . ' current_deadline = NULL, paused_remaining = NULL, completed_at = NOW() WHERE id = ?'
+        );
+        $stmt->execute([$draftId]);
+    }
+
+    /**
      * Replace the draft order with the given Team ids, positioned 1..N in the
      * order supplied.
      *

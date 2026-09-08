@@ -271,6 +271,87 @@ final class DraftCommishControlsHttpTest extends DatabaseTestCase
         $this->assertNull($this->pickRow(2)['player_id']);
     }
 
+    public function testAbortStopsTheDraftButKeepsThePicksMade(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->seedPlayer('P1');
+        $this->startDraft($teams);
+        $this->dispatch('POST', '/admin/draft/pick-on-behalf', ['player_id' => 'P1']);
+
+        $response = $this->dispatch('POST', '/admin/draft/abort');
+
+        $this->assertSame(302, $response->status);
+        $draft = $this->draftRow();
+        $this->assertSame('aborted', $draft['state']);
+        $this->assertNull($draft['current_pick_no']);
+        $this->assertNull($draft['current_deadline']);
+        $this->assertNotNull($draft['completed_at']);
+        // The picks made before the stop are kept as a record.
+        $this->assertSame('P1', $this->pickRow(1)['player_id']);
+    }
+
+    public function testAbortBlocksAnyFurtherPicks(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->seedPlayer('P1');
+        $this->seedPlayer('P2');
+        $this->startDraft($teams);
+        $this->dispatch('POST', '/admin/draft/abort');
+
+        $response = $this->dispatch('POST', '/admin/draft/pick-on-behalf', ['player_id' => 'P2']);
+
+        $this->assertSame(409, $response->status);
+        $this->assertNull($this->pickRow(1)['player_id']);
+    }
+
+    public function testAbortWorksOnAPausedDraft(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->startDraft($teams);
+        $this->dispatch('POST', '/admin/draft/pause');
+
+        $response = $this->dispatch('POST', '/admin/draft/abort');
+
+        $this->assertSame(302, $response->status);
+        $this->assertSame('aborted', $this->draftRow()['state']);
+    }
+
+    public function testAbortRejectedWhenNoDraftIsInProgress(): void
+    {
+        $this->makeManagedTeams(4);
+
+        // Draft is still in setup — nothing to stop.
+        $response = $this->dispatch('POST', '/admin/draft/abort');
+
+        $this->assertSame(409, $response->status);
+    }
+
+    public function testManagerCannotAbortTheDraft(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->startDraft($teams);
+
+        $response = $this->dispatch('POST', '/admin/draft/abort', [], $this->manager($teams[0][1]));
+
+        $this->assertSame(403, $response->status);
+        $this->assertSame('live', $this->draftRow()['state']);
+    }
+
+    public function testResetAfterAbortReturnsToSetupForANewDraft(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->seedPlayer('P1');
+        $this->startDraft($teams);
+        $this->dispatch('POST', '/admin/draft/pick-on-behalf', ['player_id' => 'P1']);
+        $this->dispatch('POST', '/admin/draft/abort');
+
+        $response = $this->dispatch('POST', '/admin/draft/reset');
+
+        $this->assertSame(302, $response->status);
+        $this->assertSame('setup', $this->draftRow()['state']);
+        $this->assertSame(0, (int) $this->pdo->query('SELECT COUNT(*) FROM draft_picks')->fetchColumn());
+    }
+
     public function testResetWipesTheBoardAndReturnsToSetup(): void
     {
         $teams = $this->makeManagedTeams(4);
