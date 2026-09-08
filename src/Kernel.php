@@ -55,6 +55,7 @@ final class Kernel
         $drafts = new DraftRepository($pdo);
         $draftPicks = new DraftPickRepository($pdo);
         $draftQueues = new DraftQueueRepository($pdo);
+        $draftPresence = new DraftPresenceRepository($pdo);
         $rosters = new RosterRepository($pdo);
         $settings = new LeagueSettingsRepository($pdo);
         $matchups = new MatchupRepository($pdo);
@@ -74,7 +75,7 @@ final class Kernel
         $draftService = new DraftService($pdo, $drafts, $draftPicks, $players, $autoPick, $rosters, $settings, $leagues, $schedule);
 
         $draft = new DraftController($pdo, $drafts, $draftPicks, $draftService, $settings, $teams, $players, $rosters, $leagues, $matchups, $view);
-        $draftRoom = new DraftRoomController($draftService, $drafts, $draftPicks, $draftQueues, $teams, $players, $leagues, $settings, $view);
+        $draftRoom = new DraftRoomController($draftService, $drafts, $draftPicks, $draftQueues, $draftPresence, $teams, $players, $leagues, $settings, $view);
         $standings = new StandingsController(new StandingsService($pdo), $teams, $leagues, $view);
         $matchupDetail = new MatchupDetailService(
             $matchups, $lineupRepo, new PlayerWeekStatsRepository($pdo), $players, new ScoringEngine(), $settings,

@@ -7,6 +7,7 @@ namespace FFB\Controllers;
 use FFB\Draft\DraftPickException;
 use FFB\Draft\DraftService;
 use FFB\DraftPickRepository;
+use FFB\DraftPresenceRepository;
 use FFB\DraftQueueRepository;
 use FFB\DraftRepository;
 use FFB\Http\Request;
@@ -31,11 +32,22 @@ final class DraftRoomController
     /** Positions a Manager can filter the available pool by, in draft-value order. */
     private const FILTER_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 
+    /**
+     * How recently a manager must have loaded the room to count as "connected".
+     * Comfortably longer than the room's poll interval (2.5–5s) so a manager who
+     * is present but between polls isn't flickered as away.
+     */
+    private const PRESENCE_WINDOW_SECONDS = 30;
+
+    /** Draft states in which the board (and its grid) is shown. */
+    private const BOARD_STATES = ['live', 'paused', 'complete', 'aborted'];
+
     public function __construct(
         private readonly DraftService $service,
         private readonly DraftRepository $drafts,
         private readonly DraftPickRepository $picks,
         private readonly DraftQueueRepository $queues,
+        private readonly DraftPresenceRepository $presence,
         private readonly TeamRepository $teams,
         private readonly PlayerRepository $players,
         private readonly LeagueRepository $leagues,
@@ -51,11 +63,22 @@ final class DraftRoomController
 
         // Polling drives the clock: any load of the room resolves a pre-staged
         // auto-start whose time has arrived, then an expired pick (ADR-0003,
-        // ADR-0007).
+        // ADR-0007). The same poll is the presence heartbeat — it records the
+        // viewer as connected so everyone can see who is in the room.
         $this->service->startScheduledIfDue();
-        $draft = $this->drafts->find($this->leagues->currentLeagueId(), $this->leagues->currentSeasonId());
+        $leagueId = $this->leagues->currentLeagueId();
+        $seasonId = $this->leagues->currentSeasonId();
+        $draft = $this->drafts->find($leagueId, $seasonId);
         if ($draft !== null) {
             $this->service->processExpiryIfDue($draft);
+            if (in_array($draft['state'], ['live', 'paused'], true)) {
+                $team = $this->teams->findByUser($leagueId, $seasonId, (int) $session->get('user_id'));
+                $this->presence->touch(
+                    (int) $draft['id'],
+                    (int) $session->get('user_id'),
+                    $team !== null ? (int) $team['id'] : null,
+                );
+            }
         }
 
         return $this->renderRoom($request, $session, is_string($flash) ? $flash : null, null);
@@ -218,6 +241,7 @@ final class DraftRoomController
 
         $onClockName = null;
         $nextUpName = null;
+        $nextUpTeamId = null;
         $myNextOverall = null;
         $myNextRound = null;
         $picksUntilMyTurn = null;
@@ -239,6 +263,7 @@ final class DraftRoomController
 
             $next = $byOverall[$currentNo + 1] ?? null;
             $nextUpName = $next !== null ? (string) $next['team_name'] : null;
+            $nextUpTeamId = $next !== null ? (int) $next['team_id'] : null;
 
             // The Manager's next unmade pick at or after the clock, and how many
             // picks away it is (0 = on the clock now).
@@ -265,7 +290,23 @@ final class DraftRoomController
         $rosterShape = $this->rosterShape($settings);
 
         $isCommissioner = $session->get('role') === 'commissioner';
-        $order = $draft !== null && $isCommissioner ? $this->drafts->order((int) $draft['id']) : [];
+
+        // The draft order (with each Team's auto-draft flag) drives the board
+        // grid's columns and the auto/connected badges everyone sees; the
+        // Commissioner additionally gets it as $order for the per-team controls.
+        $draftOrder = $draft !== null && in_array($draft['state'], self::BOARD_STATES, true)
+            ? $this->drafts->order((int) $draft['id'])
+            : [];
+        $autoDraftTeamIds = [];
+        foreach ($draftOrder as $o) {
+            if ((int) $o['auto_draft'] === 1) {
+                $autoDraftTeamIds[] = (int) $o['team_id'];
+            }
+        }
+        $connectedTeamIds = $draft !== null && in_array($draft['state'], ['live', 'paused'], true)
+            ? $this->presence->connectedTeamIds((int) $draft['id'], self::PRESENCE_WINDOW_SECONDS)
+            : [];
+        $order = $isCommissioner ? $draftOrder : [];
 
         // A Commissioner correcting a specific already-made pick (?fix=<overall>):
         // the available pool's action becomes "assign to pick #N" and a banner
@@ -299,6 +340,7 @@ final class DraftRoomController
                 'onClockTeamId' => $onClockTeamId,
                 'onClockName' => $onClockName,
                 'nextUpName' => $nextUpName,
+                'nextUpTeamId' => $nextUpTeamId,
                 'myNextOverall' => $myNextOverall,
                 'myNextRound' => $myNextRound,
                 'picksUntilMyTurn' => $picksUntilMyTurn,
@@ -312,6 +354,9 @@ final class DraftRoomController
                 'filterQ' => $filterQ,
                 'isCommissioner' => $isCommissioner,
                 'order' => $order,
+                'draftOrder' => $draftOrder,
+                'autoDraftTeamIds' => $autoDraftTeamIds,
+                'connectedTeamIds' => $connectedTeamIds,
                 'fixOverall' => $fixOverall,
                 'fixCurrentName' => $fixCurrentName,
                 'flash' => $flash,

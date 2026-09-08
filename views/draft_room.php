@@ -10,6 +10,7 @@
  * @var int|null $onClockTeamId
  * @var string|null $onClockName                  team currently on the clock
  * @var string|null $nextUpName                   team picking after the clock
+ * @var int|null $nextUpTeamId                     id of the team picking after the clock
  * @var int|null $myNextOverall                   overall number of the viewer's next unmade pick
  * @var int|null $myNextRound                     round of that pick
  * @var int|null $picksUntilMyTurn                picks until the viewer is up (0 = now, null = none left)
@@ -23,6 +24,9 @@
  * @var string $filterQ                          the active name search ('' = none)
  * @var bool $isCommissioner
  * @var list<array<string,mixed>> $order   draft order rows (commissioner only)
+ * @var list<array<string,mixed>> $draftOrder  draft order rows for everyone (grid columns + status)
+ * @var list<int> $autoDraftTeamIds        team ids currently auto-drafting
+ * @var list<int> $connectedTeamIds        team ids whose manager is in the room now
  * @var int|null $fixOverall               overall pick the commissioner is correcting (?fix=), or null
  * @var string|null $fixCurrentName        player currently on the pick being corrected
  * @var string|null $flash
@@ -80,6 +84,16 @@ $statusFlag = static function ($status): string {
 
     return ' <span class="status-flag" title="' . e($status) . '">' . e($label) . '</span>';
 };
+
+// Auto-draft / presence helpers, so a Manager can see which teams are picking
+// automatically and who is actually in the room.
+$isAuto = static fn (?int $teamId): bool => $teamId !== null && in_array($teamId, $autoDraftTeamIds, true);
+$isConnected = static fn (?int $teamId): bool => $teamId !== null && in_array($teamId, $connectedTeamIds, true);
+$autoBadge = static fn (?int $teamId): string => $isAuto($teamId)
+    ? ' <span class="tag tag-auto" title="This team is auto-drafting">auto</span>' : '';
+$presenceDot = static fn (?int $teamId): string => $isConnected($teamId)
+    ? '<span class="dot on" title="In the room now">&#9679;</span>'
+    : '<span class="dot off" title="Not in the room">&#9675;</span>';
 ?>
 <?php if ($state === 'live'): ?>
     <?php // Poll so everyone — including the manager ON the clock — sees picks land,
@@ -97,6 +111,12 @@ $statusFlag = static function ($status): string {
 <script>
 window.FFB_MY_TURN = <?= $myTurn && $state === 'live' ? 'true' : 'false' ?>;
 window.FFB_PICK_NO = <?= (int) ($draft['current_pick_no'] ?? 0) ?>;
+// My drafted counts and starter targets, so the room can warn before a Manager
+// wastes a pick on a position (QB/K/DEF) they've already filled.
+window.FFB_ROSTER = {
+    counts: <?= json_encode((object) $myRosterCounts, JSON_THROW_ON_ERROR) ?>,
+    shape: <?= json_encode((object) $rosterShape, JSON_THROW_ON_ERROR) ?>
+};
 </script>
 
 <style>
@@ -124,6 +144,22 @@ window.FFB_PICK_NO = <?= (int) ($draft['current_pick_no'] ?? 0) ?>;
 .queue-actions { white-space: nowrap; }
 .queue-actions form { display: inline; }
 .queue-actions button { min-width: 2rem; }
+.tag { display: inline-block; padding: 0 0.35rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700; vertical-align: middle; }
+.tag-auto { background: #e8e0ff; color: #5b3fbf; }
+.dot { font-size: 0.85rem; line-height: 1; }
+.dot.on { color: #2ecc71; }
+.dot.off { color: #c0392b; }
+.away-note { color: #c0392b; font-size: 0.85em; }
+.grid-scroll { overflow-x: auto; border: 1px solid #eee; border-radius: 6px; }
+.draft-grid { border-collapse: collapse; font-size: 0.8rem; }
+.draft-grid th, .draft-grid td { border: 1px solid #eee; padding: 0.3rem 0.45rem; text-align: left; vertical-align: top; white-space: nowrap; }
+.draft-grid thead th { background: #f6f8fc; position: sticky; top: 0; }
+.draft-grid th.round-col, .draft-grid td.round-col { background: #f6f8fc; font-weight: 700; text-align: center; }
+.draft-grid td.filled { background: #fff; }
+.draft-grid td.empty { color: #bbb; }
+.draft-grid td.onclock { background: #fff3cd; outline: 2px solid #e0c65a; }
+.draft-grid .cell-pos { color: #888; }
+.draft-grid .cell-fix { font-size: 0.7rem; }
 </style>
 
 <h1>Draft room</h1>
@@ -191,14 +227,18 @@ window.FFB_PICK_NO = <?= (int) ($draft['current_pick_no'] ?? 0) ?>;
             <?php endif; ?>
         <?php else: ?>
             <div>
-                On the clock: <strong><?= e((string) $onClockName) ?></strong>
+                On the clock: <strong><?= e((string) $onClockName) ?></strong><?= $autoBadge($onClockTeamId) ?>
+                <?= $presenceDot($onClockTeamId) ?>
                 (pick #<?= (int) ($draft['current_pick_no'] ?? 0) ?><?= $onClock !== null ? ', round ' . (int) $onClock['round'] : '' ?>)
                 <?php if ($state === 'live' && $secondsLeft !== null): ?>
                     &mdash; <span class="draft-clock inline" data-seconds-left="<?= (int) $secondsLeft ?>">--:--</span>
                 <?php endif; ?>
+                <?php if ($state === 'live' && !$isConnected($onClockTeamId) && !$isAuto($onClockTeamId)): ?>
+                    <div class="away-note">This manager isn't in the room — they may run the clock down<?= $autopickOnExpiry ? ' and be auto-picked' : '' ?>.</div>
+                <?php endif; ?>
             </div>
             <?php if ($nextUpName !== null): ?>
-                <div>Next up: <strong><?= e($nextUpName) ?></strong></div>
+                <div>Next up: <strong><?= e($nextUpName) ?></strong><?= $autoBadge($nextUpTeamId) ?> <?= $presenceDot($nextUpTeamId) ?></div>
             <?php endif; ?>
             <?php if ($myTeam !== null): ?>
                 <div style="margin-top:0.25rem">
@@ -280,7 +320,8 @@ window.FFB_PICK_NO = <?= (int) ($draft['current_pick_no'] ?? 0) ?>;
                                             title="Set pick #<?= (int) $fixOverall ?> to this player">Assign to #<?= (int) $fixOverall ?></button>
                                 <?php else: ?>
                                     <?php if ($myTurn): ?>
-                                        <button formaction="/draft/pick" name="player_id" value="<?= e($pid) ?>">Draft</button>
+                                        <button class="pool-draft" data-pos="<?= e((string) $p['position']) ?>"
+                                                formaction="/draft/pick" name="player_id" value="<?= e($pid) ?>">Draft</button>
                                     <?php endif; ?>
                                     <?php if ($myTeam !== null): ?>
                                         <button formaction="/draft/queue/add" name="player_id" value="<?= e($pid) ?>">+ Queue</button>
@@ -397,24 +438,78 @@ window.FFB_PICK_NO = <?= (int) ($draft['current_pick_no'] ?? 0) ?>;
 <?php endif; ?>
 
 <?php if ($board !== []): ?>
-    <?php $canFix = $isCommissioner && in_array($state, ['live', 'paused'], true); ?>
+    <?php
+    $canFix = $isCommissioner && in_array($state, ['live', 'paused'], true);
+    $currentNo = (int) ($draft['current_pick_no'] ?? 0);
+    ?>
     <h2>Board</h2>
-    <table>
-        <thead><tr><th>#</th><th>Rd</th><th>Team</th><th>Player</th><?php if ($canFix): ?><th></th><?php endif; ?></tr></thead>
-        <tbody>
-        <?php foreach ($board as $row): ?>
-            <tr>
-                <td><?= (int) $row['overall_pick'] ?></td>
-                <td><?= (int) $row['round'] ?></td>
-                <td><?= e((string) $row['team_name']) ?></td>
-                <td><?= $row['player_name'] !== null ? e((string) $row['player_name']) : '—' ?></td>
-                <?php if ($canFix): ?>
-                    <td><?php if ($row['player_id'] !== null): ?><a href="/draft?fix=<?= (int) $row['overall_pick'] ?>">Fix</a><?php endif; ?></td>
-                <?php endif; ?>
-            </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table>
+    <?php if ($draftOrder !== []): ?>
+        <?php
+        // Round × team grid: columns follow the draft order, each cell is that
+        // team's pick in that round. Built from the flat board indexed by
+        // [round][team_id].
+        $cells = [];
+        $maxRound = 0;
+        foreach ($board as $row) {
+            $cells[(int) $row['round']][(int) $row['team_id']] = $row;
+            $maxRound = max($maxRound, (int) $row['round']);
+        }
+        ?>
+        <div class="grid-scroll">
+            <table class="draft-grid">
+                <thead>
+                    <tr>
+                        <th class="round-col">Rd</th>
+                        <?php foreach ($draftOrder as $col): $tid = (int) $col['team_id']; ?>
+                            <th>
+                                <?= $presenceDot($tid) ?> <?= e((string) $col['team_name']) ?><?= $autoBadge($tid) ?>
+                            </th>
+                        <?php endforeach; ?>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php for ($rd = 1; $rd <= $maxRound; $rd++): ?>
+                    <tr>
+                        <td class="round-col"><?= $rd ?></td>
+                        <?php foreach ($draftOrder as $col): $tid = (int) $col['team_id']; $cell = $cells[$rd][$tid] ?? null; ?>
+                            <?php
+                            $isPicked = $cell !== null && $cell['player_id'] !== null;
+                            $isOnClock = $cell !== null && (int) $cell['overall_pick'] === $currentNo && $state === 'live';
+                            $cls = $isOnClock ? 'onclock' : ($isPicked ? 'filled' : 'empty');
+                            ?>
+                            <td class="<?= $cls ?>">
+                                <?php if ($isPicked): ?>
+                                    <?= e((string) $cell['player_name']) ?>
+                                    <span class="cell-pos"><?= e((string) $cell['position']) ?></span>
+                                    <?php if ($canFix): ?>
+                                        <div class="cell-fix"><a href="/draft?fix=<?= (int) $cell['overall_pick'] ?>">Fix</a></div>
+                                    <?php endif; ?>
+                                <?php elseif ($cell !== null): ?>
+                                    <?= $isOnClock ? '&#9201; on the clock' : '&mdash;' ?>
+                                <?php endif; ?>
+                            </td>
+                        <?php endforeach; ?>
+                    </tr>
+                <?php endfor; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php else: ?>
+        <?php // Fallback flat list if the draft order isn't available. ?>
+        <table>
+            <thead><tr><th>#</th><th>Rd</th><th>Team</th><th>Player</th></tr></thead>
+            <tbody>
+            <?php foreach ($board as $row): ?>
+                <tr>
+                    <td><?= (int) $row['overall_pick'] ?></td>
+                    <td><?= (int) $row['round'] ?></td>
+                    <td><?= e((string) $row['team_name']) ?></td>
+                    <td><?= $row['player_name'] !== null ? e((string) $row['player_name']) : '—' ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
 <?php endif; ?>
 
 <script>
@@ -447,6 +542,27 @@ window.FFB_PICK_NO = <?= (int) ($draft['current_pick_no'] ?? 0) ?>;
         };
         setTimeout(tick, poll);
     }
+
+    // Soft over-draft warning: nudge before drafting another QB/K/DEF the roster
+    // already has enough of. Those positions don't fill FLEX, so extra ones are
+    // usually a wasted pick — the classic "kid drafts three kickers" mistake.
+    // RB/WR/TE are never warned (depth there feeds FLEX and the bench).
+    var roster = window.FFB_ROSTER || { counts: {}, shape: {} };
+    var singleSlot = { QB: 1, K: 1, DEF: 1 };
+    Array.prototype.forEach.call(document.querySelectorAll('button.pool-draft'), function (btn) {
+        btn.addEventListener('click', function (e) {
+            var pos = btn.getAttribute('data-pos');
+            if (!(pos in singleSlot)) { return; }
+            var have = (roster.counts && roster.counts[pos]) || 0;
+            var need = (roster.shape && roster.shape[pos]) || 0;
+            if (need > 0 && have >= need) {
+                var word = pos === 'DEF' ? 'defenses' : pos + 's';
+                if (!window.confirm('You already have ' + have + ' ' + word + ' (you only start ' + need + '). Draft another ' + pos + ' anyway?')) {
+                    e.preventDefault();
+                }
+            }
+        });
+    });
 
     // "It's your turn" alert. The tab-title flash is the dependable signal — it
     // works even in a background tab, and needs no prior click. The beep and

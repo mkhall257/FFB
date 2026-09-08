@@ -272,6 +272,60 @@ final class DraftRoomFilterHttpTest extends DatabaseTestCase
         $this->assertStringNotContainsString('Assign to #1', $response->body);
     }
 
+    public function testBoardRendersAsRoundByTeamGrid(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->startDraft($teams);
+
+        $response = $this->dispatch('GET', '/draft', [], [], $this->manager($teams[0][1]));
+
+        $this->assertStringContainsString('draft-grid', $response->body);
+        $this->assertStringContainsString('<th class="round-col">Rd</th>', $response->body);
+        // Every team is a column header.
+        $this->assertStringContainsString('Team 1', $response->body);
+        $this->assertStringContainsString('Team 4', $response->body);
+    }
+
+    public function testAutoDraftTeamShowsAutoBadgeToEveryone(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->startDraft($teams);
+        // Commissioner puts Team 2 on auto-draft (Team 1 is on the clock, so no
+        // pick is triggered — just the flag is set).
+        $this->dispatch('POST', '/admin/draft/auto-draft', ['team_id' => $teams[1][0], 'enabled' => '1']);
+
+        // A different manager (Team 3) can see the auto badge.
+        $response = $this->dispatch('GET', '/draft', [], [], $this->manager($teams[2][1]));
+
+        $this->assertStringContainsString('tag-auto', $response->body);
+    }
+
+    public function testManagerIsShownAsConnectedAfterLoadingTheRoom(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->startDraft($teams);
+
+        // Loading the room records the viewer's presence, so at least their own
+        // team renders as connected (a green dot).
+        $response = $this->dispatch('GET', '/draft', [], [], $this->manager($teams[0][1]));
+
+        $this->assertStringContainsString('dot on', $response->body);
+    }
+
+    public function testDraftButtonCarriesOverDraftWarningData(): void
+    {
+        $teams = $this->makeManagedTeams(4);
+        $this->seedPlayer('P1', 'Some Passer', 'QB', 1);
+        $this->startDraft($teams);
+
+        // Team 1 is on the clock, so its manager sees the Draft button.
+        $response = $this->dispatch('GET', '/draft', [], [], $this->manager($teams[0][1]));
+
+        $this->assertStringContainsString('class="pool-draft"', $response->body);
+        $this->assertStringContainsString('data-pos="QB"', $response->body);
+        $this->assertStringContainsString('FFB_ROSTER', $response->body);
+    }
+
     public function testPoolShowsByeWeek(): void
     {
         $teams = $this->makeManagedTeams(4);
