@@ -151,33 +151,101 @@ Every NFL player can only be on **one** team in our league. If someone drafts Pa
 Mahomes, no one else can have him. That's why the draft matters — you're claiming
 players before anyone else can.
 
+### Getting into the Draft Room
+
+Open the **Draft Room** page on draft day. The room **updates by itself** — you don't
+need to refresh. If the Commissioner scheduled a start time, the page will show a
+countdown and **bring you in automatically** the moment the draft begins, so just have
+it open and wait.
+
+At the top you'll always see the **live status banner** telling you what's happening:
+
+- **When it's someone else's turn:** *"On the clock: [team name]"* with a countdown,
+  and *"Next up: [team name]"* — plus a line telling you **how many picks until your
+  turn** (e.g. *"Your next pick: 3 picks away"*). When you're the very next picker it
+  says *"You're up next!"*
+- **When it's your turn:** a big green *"You're on the clock — make your pick below!"*
+  banner with your timer. To make sure you don't miss it, the browser **tab title
+  flashes "⏰ YOUR PICK!"** and (if your device allows it) you'll hear a little
+  **beep** or feel a **buzz** — handy if you switched to another app.
+
 ### Your pick timer
 
-You get a set amount of **time per pick** (your Commissioner decides how long). A
-countdown shows on your turn. Pick before it runs out!
+You get a set amount of **time per pick** (your Commissioner decides how long). The
+countdown shows on your turn. Depending on the Commissioner's setup it's labelled
+either **"Time left"** (nothing happens automatically — you stay on the clock until
+you pick) or **"Auto-pick in"** (when it hits zero, the system drafts for you). Either
+way: pick before it runs out when you can!
+
+### Finding players — the available list
+
+Below the banner is the list of every player still available, **best first**. To find
+who you want fast:
+
+- **Position chips** across the top — tap **QB, RB, WR, TE, K, or DEF** to show only
+  that position (tap **All** to go back). This is the easy way to grab a Kicker or
+  Defense late.
+- A **search box** — type a **player's name or NFL team** (e.g. "Mahomes" or "SF").
+- Each row shows the player's **rank, position, NFL team, and bye week**. Watch for a
+  small **injury flag** next to a name — **IR** (injured reserve), **Q**
+  (questionable), **OUT**, **SUSP** (suspended), and so on — a warning that the player
+  may not be healthy.
+
+Tap **Draft** on a player to pick them (only shows on your turn), or **+ Queue** to
+add them to your wish-list for later.
+
+### "My roster so far"
+
+While you draft, a row of pills shows what you've got versus what you still need —
+like **QB 0/1, RB 1/2, WR 0/2, TE 0/1, K 0/1, DEF 0/1**. Green means that spot is
+filled; use it to make sure you don't forget a position.
+
+> **Friendly warning:** if you try to draft a **second** quarterback, kicker, or
+> defense when you already have enough, the site double-checks with you first — you
+> only start one of each, so extras are usually a wasted pick. (It never stops you
+> from stacking running backs, receivers, or tight ends — depth there is good.)
 
 ### The Queue — your secret weapon
 
 Before and during the draft, build a **Queue**: your private, ranked wish-list of
-players you want. On your turn you can grab the top available player from your Queue
-in one tap. Your Queue is **private** — no one else sees it.
+players you want. Add players with **+ Queue**. On your turn you can grab your top
+queued player fast. In the **My Queue** list you can **reorder** it with the ▲/▼
+arrows (top of the list = drafted first) or **Remove** a player. Your Queue is
+**private** — no one else sees it — and it shows each player's bye week and any injury
+flag too.
 
-### Auto-pick (a safety net)
+### Auto-pick and auto-draft (safety nets)
 
-If your timer runs out, the system can make a pick **for** you (if the Commissioner
-turned that on): it takes the best player from your Queue, or the best available
-player if your Queue is empty. And if you can't make it to the draft at all, the
-Commissioner can put your team on **auto-draft** so it picks a full, sensible roster
+If your timer runs out (and the Commissioner turned on auto-pick), the system makes a
+pick **for** you: it takes the top player from your Queue, or the best available
+player if your Queue is empty. And if you can't make the draft at all, the
+Commissioner can put your team on **auto-draft** so it fills a sensible roster
 automatically. **Tip: always build a Queue** so any auto-picks match what you'd want.
+
+### The board & who's in the room
+
+Further down, the **board** shows every pick as a grid — one **column per team**, one
+**row per round** — so you can see the whole draft at a glance, with the team currently
+on the clock highlighted. Next to each team you'll see:
+
+- a green **●** dot if that Manager is **in the room right now**, or a red **○** if
+  they're not; and
+- an **"auto"** tag if that team is on auto-draft.
+
+These are just so you know who's around — none of it changes how you pick.
 
 ### Beginner draft tips
 
 - **Draft starters first.** Get your QB, RBs, WRs, and TE early. Grab a Kicker and
-  Defense near the **end** — you only need one of each.
-- **Fill every position.** Make sure you can field a legal lineup (see the table in
-  §4). The system helps, but plan for it.
+  Defense near the **end** — you only need one of each (use the **K**/**DEF** filter
+  chips to find them).
+- **Fill every position.** Use the "My roster so far" pills so you can field a legal
+  lineup (see the table in §4).
 - **Use your bench for backups.** Later picks are your depth for bye weeks and
   injuries.
+- **Mind the flags.** Skip a player with an **IR/OUT** flag unless it's a great value
+  and you have bench room, and glance at **bye weeks** so your starters aren't all off
+  in the same week.
 
 ---
 
@@ -380,6 +448,9 @@ You can watch the whole bracket on the **Playoffs** page.
 
 ## 14. Quick glossary
 
+- **Auto-draft:** a team the Commissioner has set to pick automatically (shown with an
+  "auto" tag in the Draft Room). *Auto-pick* is the related safety net that drafts for
+  you only if your own timer runs out.
 - **Bye:** a week a player (or your whole team, if the league is odd-numbered) has
   off. A player on a bye scores 0.
 - **Draft:** the event where everyone picks players to start the season.
@@ -388,6 +459,8 @@ You can watch the whole bracket on the **Playoffs** page.
 - **Half-PPR:** our scoring — half a point for every catch, plus yards and touchdowns.
 - **Lineup:** the starters you choose for the week (only they score).
 - **Matchup:** your head-to-head game vs another Manager for the week.
+- **On the clock:** whoever's turn it is to pick in the draft right now. The Draft
+  Room banner shows who's on the clock, who's up next, and how many picks until yours.
 - **PPR:** "points per reception" — points for catching passes.
 - **Queue:** your private ranked wish-list of players for the draft.
 - **Roster:** all 14 players on your team.
