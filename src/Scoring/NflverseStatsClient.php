@@ -7,8 +7,12 @@ namespace FFB\Scoring;
 use FFB\Players\RemoteFile;
 
 /**
- * Downloads nflverse's weekly official player stats (the offense CSV release) and
- * normalizes each row to the scoring stat names, keyed by the gsis (nflverse) id.
+ * Downloads nflverse's weekly official player stats (the stats_player release)
+ * and normalizes each row to the scoring stat names, keyed by the gsis
+ * (nflverse) id. nflverse retired the older player_stats/player_stats_{year}.csv
+ * release in 2025 — it 404s for 2025+ seasons — so we read
+ * stats_player/stats_player_week_{year}.csv, which renamed interceptions to
+ * passing_interceptions (both names are accepted).
  *
  * Scope (verified against the live 2024 release): this file covers offensive
  * production only. Kicker and team-Defense scoring are NOT in it — kicking lives
@@ -25,9 +29,29 @@ final class NflverseStatsClient
      */
     public function fetchWeek(int $season, int $week): array
     {
-        $url = "https://github.com/nflverse/nflverse-data/releases/download/player_stats/player_stats_{$season}.csv";
+        return $this->fetchWeeks($season, [$week])[$week];
+    }
 
-        return $this->rowsForWeek(RemoteFile::get($url), $week);
+    /**
+     * Several weeks from one download of the season file.
+     *
+     * @param list<int> $weeks
+     * @return array<int, array<string, array<string,float>>> week => (gsis_id => normalized stat line)
+     */
+    public function fetchWeeks(int $season, array $weeks): array
+    {
+        $csv = RemoteFile::get(self::seasonUrl($season));
+        $out = [];
+        foreach ($weeks as $week) {
+            $out[$week] = $this->rowsForWeek($csv, $week);
+        }
+
+        return $out;
+    }
+
+    public static function seasonUrl(int $season): string
+    {
+        return "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_{$season}.csv";
     }
 
     /**
@@ -88,7 +112,8 @@ final class NflverseStatsClient
 
         $map = [
             'receptions' => 'reception', 'passing_yards' => 'pass_yard',
-            'passing_tds' => 'pass_td', 'interceptions' => 'pass_int',
+            'passing_tds' => 'pass_td',
+            'passing_interceptions' => 'pass_int', 'interceptions' => 'pass_int',
             'rushing_yards' => 'rush_yard', 'rushing_tds' => 'rush_td',
             'receiving_yards' => 'rec_yard', 'receiving_tds' => 'rec_td',
         ];

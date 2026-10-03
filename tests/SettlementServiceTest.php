@@ -107,4 +107,24 @@ final class SettlementServiceTest extends DatabaseTestCase
         $this->assertSame('final', $row['status']);
         $this->assertTrue((float) $row['away_score'] > (float) $row['home_score'], 'settlement flipped the winner');
     }
+
+    public function testFindsEveryPastWeekNotYetSettled(): void
+    {
+        $teams = new TeamRepository($this->pdo);
+        $a = $teams->create($this->leagueId, $this->seasonId, 'A');
+        $b = $teams->create($this->leagueId, $this->seasonId, 'B');
+        $insert = $this->pdo->prepare(
+            'INSERT INTO matchups (league_id, season_id, week, home_team_id, away_team_id, status)'
+            . ' VALUES (?,?,?,?,?,?)'
+        );
+        // Week 1 settled; weeks 2-3 were played but never settled; week 4 is
+        // the current (in-progress) week; week 5 hasn't started.
+        foreach ([[1, 'final'], [2, 'live'], [3, 'live'], [4, 'live'], [5, 'scheduled']] as [$week, $status]) {
+            $insert->execute([$this->leagueId, $this->seasonId, $week, $a, $b, $status]);
+        }
+
+        $weeks = (new MatchupRepository($this->pdo))->unsettledWeeksBefore($this->seasonId, 4);
+
+        $this->assertSame([2, 3], $weeks);
+    }
 }

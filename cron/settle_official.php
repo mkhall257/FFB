@@ -8,8 +8,11 @@ declare(strict_types=1);
  * as final, and locks the week (ADR-0005). May change a result; Standings then
  * reflect the settled outcome.
  *
- * The week to settle is schedule.settle_week, defaulting to the week before
- * schedule.current_week.
+ * Settles every played week (before schedule.current_week) that is not yet
+ * final, oldest first — so a missed or failed run catches up on its next run
+ * instead of leaving that week unsettled forever. A week nflverse has not
+ * published yet is skipped and retried tomorrow. Setting schedule.settle_week
+ * settles (or re-settles) just that one week instead.
  *
  * Usage:
  *   php cron/settle_official.php
@@ -39,10 +42,15 @@ $seasonId = $leagues->currentSeasonId();
 
 $settings = new LeagueSettingsRepository($pdo);
 $all = $settings->all($leagueId, $seasonId);
-$week = (int) ($all['schedule.settle_week'] ?? ((int) ($all['schedule.current_week'] ?? 1) - 1));
 $season = (int) ($all['schedule.season_year'] ?? date('Y'));
-if ($week < 1) {
-    fwrite(STDERR, "No week to settle yet.\n");
+$matchups = new MatchupRepository($pdo);
+$override = trim((string) ($all['schedule.settle_week'] ?? ''));
+$weeks = $override !== ''
+    ? [(int) $override]
+    : $matchups->unsettledWeeksBefore($seasonId, (int) ($all['schedule.current_week'] ?? 0));
+$weeks = array_values(array_filter($weeks, static fn (int $w): bool => $w >= 1));
+if ($weeks === []) {
+    echo "No played weeks waiting to settle.\n";
     exit(0);
 }
 
@@ -50,19 +58,33 @@ try {
     $stats = new PlayerWeekStatsRepository($pdo);
     $importer = new StatsImporter($stats, new PlayerRepository($pdo));
     $scoring = new MatchupScoringService(
-        new MatchupRepository($pdo),
+        $matchups,
         new LineupRepository($pdo),
         $stats,
         new ScoringEngine(),
         $settings,
     );
-    $settlement = new SettlementService($importer, $scoring, new MatchupRepository($pdo));
+    $settlement = new SettlementService($importer, $scoring, $matchups);
 
-    $lines = (new NflverseStatsClient())->fetchWeek($season, $week);
-    $settlement->settleWeek($leagueId, $seasonId, $week, $lines);
-
-    echo "Settled week {$week} to official (" . count($lines) . " official stat lines).\n";
+    $byWeek = (new NflverseStatsClient())->fetchWeeks($season, $weeks);
 } catch (\Throwable $e) {
-    fwrite(STDERR, "Settling week {$week} failed: {$e->getMessage()}\n");
+    fwrite(STDERR, "Fetching official stats failed: {$e->getMessage()}\n");
     exit(1);
 }
+
+$failed = false;
+foreach ($byWeek as $week => $lines) {
+    if ($lines === []) {
+        echo "Week {$week}: nflverse has not published official stats yet; will retry next run.\n";
+        continue;
+    }
+    try {
+        $settlement->settleWeek($leagueId, $seasonId, $week, $lines);
+        echo "Settled week {$week} to official (" . count($lines) . " official stat lines).\n";
+    } catch (\Throwable $e) {
+        fwrite(STDERR, "Settling week {$week} failed: {$e->getMessage()}\n");
+        $failed = true;
+    }
+}
+
+exit($failed ? 1 : 0);

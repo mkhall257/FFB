@@ -113,6 +113,23 @@ final class MatchupRepository
         )->execute([$homeScore, $awayScore, $status, $matchupId]);
     }
 
+    /**
+     * Weeks before $beforeWeek that still have a Matchup not yet final — played
+     * weeks the settlement cron has not caught up on, oldest first.
+     *
+     * @return list<int>
+     */
+    public function unsettledWeeksBefore(int $seasonId, int $beforeWeek): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT DISTINCT week FROM matchups'
+            . " WHERE season_id = ? AND week < ? AND status <> 'final' ORDER BY week"
+        );
+        $stmt->execute([$seasonId, $beforeWeek]);
+
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
     public function settleWeek(int $seasonId, int $week): void
     {
         $this->pdo->prepare(

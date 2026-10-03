@@ -39,6 +39,21 @@ final class NflverseStatsClientTest extends TestCase
         $this->assertSame(5.0, $lines['00-0000001']['reception']);
     }
 
+    public function testReadsTheCurrentStatsPlayerInterceptionColumn(): void
+    {
+        // nflverse's stats_player release (2025+) renamed interceptions to
+        // passing_interceptions.
+        $csv = "player_id,week,season_type,passing_yards,passing_tds,passing_interceptions
+"
+            . "00-0000001,3,REG,210,1,2
+";
+
+        $lines = (new NflverseStatsClient())->rowsForWeek($csv, 3);
+
+        $this->assertSame(2.0, $lines['00-0000001']['pass_int']);
+        $this->assertSame(210.0, $lines['00-0000001']['pass_yard']);
+    }
+
     public function testOmitsZeroFumbles(): void
     {
         $csv = self::HEADER . "\n"
